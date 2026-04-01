@@ -1860,19 +1860,6 @@ body {
 </head>
 <body>
 
-<!-- زر اختبار الإنترنت (مؤقت) -->
-<button id="test-fetch-btn" style="position:fixed;top:10px;left:10px;z-index:99999;background:#2196f3;color:#fff;padding:10px 18px;border-radius:8px;border:none;font-size:15px;">Test Internet</button>
-<script>
-  document.getElementById('test-fetch-btn').onclick = async function() {
-    try {
-      const resp = await fetch('https://jsonplaceholder.typicode.com/todos/1');
-      const data = await resp.json();
-      alert('Fetch OK! ' + JSON.stringify(data));
-    } catch(e) {
-      alert('Fetch FAILED: ' + (e.message || e));
-    }
-  };
-</script>
 <div id="loadingScreen" style="position:fixed;inset:0;background:#0d0f14;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:99999;font-family:'Cairo',sans-serif">
   <div style="font-size:48px;margin-bottom:20px">🏪</div>
   <h2 style="color:#f59e0b;font-size:24px;font-weight:900;margin-bottom:12px">نقطة البيع</h2>
