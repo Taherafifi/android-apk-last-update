@@ -1341,7 +1341,7 @@ body.kiosk .main-content > *{padding-right:calc(180px + 20px)!important}
     overflow-y:auto;
   }
   .sidebar.mobile-open{right:0}
-  .sidebar .nav-tab-label{opacity:1!important;width:auto!important}
+  .sidebar .nav-tab-label{opacity:1!important;width:auto!important;pointer-events:auto!important}
   .sidebar .sidebar-brand-text{opacity:1!important;width:auto!important}
   .sidebar .nav-tab{justify-content:flex-start!important;padding:10px 12px!important}
   /* Sidebar backdrop */
@@ -1859,6 +1859,46 @@ body {
 
 </head>
 <body>
+
+<!-- Failsafe: nav-tab click handler via event delegation (separate script block) -->
+<script>
+(function(){
+  document.addEventListener('click', function(e){
+    var t = e.target;
+    while(t && t !== document){
+      if(t.classList && t.classList.contains('nav-tab') && t.dataset && t.dataset.section){
+        var sid = t.dataset.section;
+        if(typeof navigateTo === 'function'){
+          navigateTo(sid);
+        } else {
+          var secs = document.querySelectorAll('.section');
+          for(var i=0;i<secs.length;i++) secs[i].classList.remove('active');
+          var tabs = document.querySelectorAll('.nav-tab');
+          for(var j=0;j<tabs.length;j++) tabs[j].classList.remove('active');
+          var ps = document.getElementById('posScreen');
+          if(ps) ps.style.display = 'none';
+          if(sid === 'posScreen'){
+            if(ps) ps.style.display = 'flex';
+          } else {
+            var sec = document.getElementById(sid);
+            if(sec) sec.classList.add('active');
+          }
+          t.classList.add('active');
+        }
+        if(window.innerWidth <= 768){
+          var sb = document.getElementById('sidebar');
+          var bd = document.getElementById('sidebarBackdrop');
+          if(sb) sb.classList.remove('mobile-open');
+          if(bd) bd.classList.remove('show');
+          document.body.style.overflow = '';
+        }
+        return;
+      }
+      t = t.parentElement;
+    }
+  });
+})();
+</script>
 
 <div id="loadingScreen" style="position:fixed;inset:0;background:#0d0f14;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:99999;font-family:'Cairo',sans-serif">
   <div style="font-size:48px;margin-bottom:20px">🏪</div>
