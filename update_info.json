@@ -1,5 +1,11 @@
 {
-  "version": "2.1.9",
+  "version": "2.2.1",
+  "date": "2026-04-02",
+  "changelog": "• إصلاح زرار الواتساب نهائياً - اعتراض من Java مباشرة"
+},
+  "date": "2026-04-02",
+  "changelog": "• إصلاح الواتساب نهائياً: whatsapp:// scheme زي tel:"
+}
   "date": "2026-04-02",
   "changelog": "• إصلاح واتساب: intent scheme للأزرار + Browser plugin للرسائل"
 }
