@@ -1284,6 +1284,7 @@ body.kiosk .main-content > *{padding-right:calc(180px + 20px)!important}
 .notif-btn:hover{border-color:var(--accent)}
 .notif-badge{position:absolute;top:-4px;right:-4px;background:var(--danger);color:#fff;border-radius:50%;width:18px;height:18px;font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:center;animation:pulse 1.5s infinite}
 @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.2)}}
+@keyframes kemetPulseRed{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.6)}50%{box-shadow:0 0 12px 4px rgba(239,68,68,0.3)}}
 .notif-panel{position:fixed;top:60px;left:20px;width:320px;max-height:420px;overflow-y:auto;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);z-index:500;display:none}
 .notif-panel.show{display:block}
 .notif-item{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:start;font-size:13px}
@@ -6064,9 +6065,11 @@ async function checkForUpdates(){
     }
 
     if(result.available){
+      // Mark button as update available
+      _markUpdateAvailable(btn, result.version);
       const confirmed = await window.kemetUpdater.showUpdateDialog(result.version, result.changelog, result.currentVersion, result.date);
       if(confirmed){
-        if(btn){ btn.innerHTML = '⬇️'; btn.disabled = true; }
+        if(btn){ btn.innerHTML = '⬇️'; btn.disabled = true; btn.style.animation = ''; }
         const loader = _showOTAMessage('⬇️', 'جارِ تحميل التحديث...', 'الإصدار ' + result.version, 'loading');
         const applied = await window.kemetUpdater.applyUpdate(function(msg){
           const p = document.getElementById('kemet-upd-progress');
@@ -6079,12 +6082,35 @@ async function checkForUpdates(){
         }
       }
     } else {
+      // Clear any update indicator
+      if(btn){ btn.style.background = ''; btn.style.animation = ''; btn.title = 'تحقق من التحديثات'; }
       _showOTAMessage('✅', 'أنت على آخر إصدار', 'الإصدار الحالي: ' + (result.currentVersion || ''), 'success');
     }
   } catch(e){
     if(btn){ btn.innerHTML = orig; btn.disabled = false; }
     _showOTAMessage('⚠️', 'حدث خطأ', 'تعذر التحقق من التحديثات', 'error');
   }
+}
+
+// ── Mark update button red when update is available ──
+function _markUpdateAvailable(btn, version){
+  if(!btn) return;
+  btn.style.background = 'linear-gradient(135deg,#ef4444,#dc2626)';
+  btn.style.border = '1px solid #f87171';
+  btn.style.animation = 'kemetPulseRed 1.5s ease-in-out infinite';
+  btn.title = 'يوجد تحديث جديد: ' + version;
+}
+
+// ── Silent update check on login (no dialogs) ──
+async function _silentUpdateCheck(){
+  if(!window.kemetUpdater) return;
+  try {
+    const result = await window.kemetUpdater.checkUpdate();
+    if(result.available){
+      const btn = document.getElementById('appUpdateBtn');
+      _markUpdateAvailable(btn, result.version);
+    }
+  } catch(e){}
 }
 
 
@@ -6684,6 +6710,7 @@ async function init(){
         renderAll();
         initBackupSystem();
         updateNotifBadge();
+        setTimeout(_silentUpdateCheck, 5000);
         return;
       }
     }catch(e){}
@@ -6918,6 +6945,7 @@ function doLogin(){
   initBackupSystem();
   updateNotifBadge();
   updateApprovalsBadge();
+  setTimeout(_silentUpdateCheck, 5000);
   if(!currentShift && user.role !== 'admin') toast('⚠️ لا توجد وردية مفتوحة. يرجى فتح وردية.','warning');
   // Show manager approval pop-up after login
   setTimeout(()=>{
