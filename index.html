@@ -19,7 +19,7 @@
 <script>
 (function(){
   var OTA_BASE='https://raw.githubusercontent.com/Taherafifi/android-apk-last-update/main/';
-  var BUNDLED_VERSION='2.1.6';
+  var BUNDLED_VERSION='2.1.7';
 
   if(window.kemetUpdater){
     // getVersion: localStorage → bridge → bundled fallback
@@ -16904,13 +16904,13 @@ function printHTML(htmlContent, filename='print'){
     // Use flex layout: fixed toolbar + scrollable content (more reliable than position:sticky in WebView)
     overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#f1f5f9;display:flex;flex-direction:column';
     overlay.innerHTML = `
-      <div dir="rtl" style="flex-shrink:0;background:#1e293b;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px;box-shadow:0 2px 8px rgba(0,0,0,.3);font-family:'Cairo',sans-serif;z-index:100">
-        <span style="color:#94a3b8;font-size:12px;font-weight:600">🏪 ${storeName}</span>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+      <div dir="rtl" style="flex-shrink:0;background:#1e293b;padding:10px 16px;display:flex;align-items:center;gap:8px;box-shadow:0 2px 8px rgba(0,0,0,.3);font-family:'Cairo',sans-serif;z-index:100">
+        <button onclick="window._pdfOverlayClose()" style="background:#ef4444;color:#fff;border:none;border-radius:50%;width:36px;height:36px;font-size:18px;font-weight:700;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(239,68,68,0.4)">✕</button>
+        <span style="color:#94a3b8;font-size:12px;font-weight:600;flex-shrink:0">🏪 ${storeName}</span>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;flex:1;justify-content:flex-end">
           <button onclick="window._pdfOverlayPrint()" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:'Cairo',sans-serif;font-weight:700;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px">🖨️ طباعة / PDF</button>
           <button onclick="window._pdfOverlayShare()" style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:'Cairo',sans-serif;font-weight:700;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px">📤 مشاركة</button>
           <button onclick="window._pdfOverlayShareImage()" style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:'Cairo',sans-serif;font-weight:700;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px">📸 مشاركة كصورة</button>
-          <button onclick="window._pdfOverlayClose()" style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:'Cairo',sans-serif;font-weight:700;font-size:14px;cursor:pointer">✕ إغلاق</button>
         </div>
       </div>
       <div dir="rtl" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;font-family:'Cairo',sans-serif;direction:rtl">
@@ -16976,7 +16976,12 @@ function printHTML(htmlContent, filename='print'){
       overlay.style.display = 'none';
       overlay.innerHTML = '';
       document.body.style.overflow = '';
+      // Remove back button handler
+      if(window._pdfBackHandler){ document.removeEventListener('backbutton', window._pdfBackHandler); window._pdfBackHandler = null; }
     };
+    // Android hardware back button closes overlay
+    window._pdfBackHandler = function(e){ e.preventDefault(); window._pdfOverlayClose(); };
+    document.addEventListener('backbutton', window._pdfBackHandler);
     return;
   }
 
