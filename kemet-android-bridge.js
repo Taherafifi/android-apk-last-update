@@ -386,9 +386,13 @@
   window.kemetShell = {
     openExternal: async (url) => {
       try {
-        // For tel:, mailto:, whatsapp links — use intent-based navigation on Android
-        if (url.startsWith('tel:') || url.startsWith('mailto:') || url.indexOf('wa.me') !== -1 || url.indexOf('whatsapp') !== -1) {
-          window.location.href = url.startsWith('tel:') || url.startsWith('mailto:') ? url : 'intent://' + url.replace(/^https?:\/\//, '') + '#Intent;scheme=https;package=com.whatsapp;end';
+        if (url.startsWith('tel:') || url.startsWith('mailto:')) {
+          window.location.href = url;
+          return;
+        }
+        if (url.indexOf('wa.me') !== -1 || url.indexOf('whatsapp') !== -1) {
+          var intentUrl = 'intent://' + url.replace(/^https?:\/\//, '') + '#Intent;scheme=https;package=com.whatsapp;end';
+          window.location.href = intentUrl;
           return;
         }
         const Browser = getCapPlugin('Browser');
