@@ -1,5 +1,5 @@
 {
-  "version": "2.1.8",
+  "version": "2.1.9",
   "date": "2026-04-02",
-  "changelog": "• إصلاح زرار الواتساب - رابط مباشر زي الاتصال والفيسبوك"
+  "changelog": "• إصلاح واتساب: intent scheme للأزرار + Browser plugin للرسائل"
 }
