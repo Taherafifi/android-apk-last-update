@@ -5,8 +5,99 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <!-- Capacitor Runtime -->
 <script src="capacitor.js"></script>
+<!-- OTA Safety: prevent old bridge.js from using document.write -->
+<script>
+try { sessionStorage.setItem('kemet_ota_loaded','1'); } catch(e){}
+try { localStorage.removeItem('kemet_ota_html'); } catch(e){}
+</script>
 <!-- Android Bridge (replaces Electron preload) -->
 <script src="kemet-android-bridge.js"></script>
+<!-- OTA v2: file-URL navigation (works with any bridge.js version) -->
+<script>
+(function(){
+  var OTA_BASE='https://raw.githubusercontent.com/Taherafifi/android-apk-last-update/main/';
+  var OTA_PATH='kemet_ota.html';
+  var OTA_VER='kemet_ota_version';
+  function _cap(n){return window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins[n]}
+  function _native(){return !!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())}
+  function _onFile(){return window.location.href.indexOf('_capacitor_file_')!==-1}
+
+  /* ── Cold-start: navigate to saved OTA file ── */
+  if(_native()&&!_onFile()){
+    (async function(){
+      try{
+        var Prefs=_cap('Preferences'),Fs=_cap('Filesystem');
+        if(!Prefs||!Fs)return;
+        var r=await Prefs.get({key:OTA_VER});
+        if(!r.value)return;
+        // Ensure <base href="/"> in saved file for script resolution
+        try{
+          var rd=await Fs.readFile({path:OTA_PATH,directory:'DATA',encoding:'utf8'});
+          if(rd.data&&rd.data.indexOf('<base ')===-1){
+            await Fs.writeFile({path:OTA_PATH,data:rd.data.replace('<head>','<head>\n<base href="/">'),directory:'DATA',encoding:'utf8'});
+          }
+        }catch(e){}
+        var uri=await Fs.getUri({path:OTA_PATH,directory:'DATA'});
+        window.location.href=window.Capacitor.convertFileSrc(uri.uri);
+      }catch(e){/* no OTA file — use bundled */}
+    })();
+  }
+
+  /* ── Override kemetUpdater methods ── */
+  if(window.kemetUpdater){
+    // checkUpdate with cache-busting
+    window.kemetUpdater.checkUpdate=async function(){
+      try{
+        var resp=await fetch(OTA_BASE+'update_info.json?_t='+Date.now(),{cache:'no-store'});
+        if(!resp.ok)throw new Error('HTTP '+resp.status);
+        var info=await resp.json();
+        var cv=await window.kemetUpdater.getVersion();
+        var c=cv.split('.').map(Number),rm=info.version.split('.').map(Number),newer=false;
+        for(var i=0;i<3;i++){if((rm[i]||0)>(c[i]||0)){newer=true;break;}if((rm[i]||0)<(c[i]||0))break;}
+        if(!newer)return{available:false,currentVersion:cv,message:'أنت على آخر إصدار ✅ ('+cv+')'};
+        return{available:true,version:info.version,changelog:info.changelog||'',date:info.date||'',currentVersion:cv};
+      }catch(e){
+        return{available:false,error:true,message:'تعذّر التحقّق من التحديثات'};
+      }
+    };
+    // applyUpdate with file-URL navigation (no document.write)
+    window.kemetUpdater.applyUpdate=async function(prog){
+      try{
+        var infoR=await fetch(OTA_BASE+'update_info.json?_t='+Date.now(),{cache:'no-store'});
+        if(!infoR.ok)throw new Error('info '+infoR.status);
+        var info=await infoR.json();
+        if(prog)prog('جارِ تحميل الملفات...');
+        var htmlR=await fetch(OTA_BASE+'index.html?_t='+Date.now(),{cache:'no-store'});
+        if(!htmlR.ok)return{success:false,error:'ملف التحديث غير موجود'};
+        var html=await htmlR.text();
+        if(!html||html.length<100)return{success:false,error:'ملف التحديث فارغ'};
+        // Inject <base href="/"> for file-URL loading
+        if(html.indexOf('<base ')===-1)html=html.replace('<head>','<head>\n<base href="/">');
+        var Fs=_cap('Filesystem'),Pr=_cap('Preferences');
+        if(!Fs||!Pr)return{success:false,error:'Filesystem غير متاح'};
+        if(prog)prog('جارِ الحفظ...');
+        await Fs.writeFile({path:OTA_PATH,data:html,directory:'DATA',encoding:'utf8'});
+        await Pr.set({key:OTA_VER,value:info.version});
+        if(prog)prog('جارِ التطبيق...');
+        var uri=await Fs.getUri({path:OTA_PATH,directory:'DATA'});
+        window.location.href=window.Capacitor.convertFileSrc(uri.uri);
+        return{success:true,version:info.version};
+      }catch(e){
+        return{success:false,error:'فشل التحديث: '+e.message};
+      }
+    };
+  }
+
+  /* ── Loading timeout failsafe ── */
+  setTimeout(function(){
+    var ls=document.getElementById('loadingScreen');
+    if(ls&&ls.style.display!=='none'){
+      var msg=document.getElementById('loadingMsg');
+      if(msg)msg.innerHTML='استغرق التحميل وقتاً طويلاً<br><button onclick="location.reload()" style="margin-top:12px;padding:10px 24px;background:#f59e0b;border:none;border-radius:10px;font-family:Cairo,sans-serif;font-size:14px;font-weight:700;cursor:pointer;color:#000">🔄 إعادة المحاولة</button>';
+    }
+  },15000);
+})();
+</script>
 <title>كيميت — KEMET POS</title>
 
 <!-- PWA Meta Tags -->
