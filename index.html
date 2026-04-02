@@ -5827,14 +5827,24 @@ function closeQR(){
         <!-- اختيار الملف + الحدث -->
         <div style="display:flex;flex-direction:column;gap:8px">
           <!-- اختيار الملف الصوتي -->
-          <div onclick="document.getElementById('customSoundFile').click()" style="display:flex;align-items:center;gap:10px;background:var(--surface3);border:1.5px dashed var(--border);border-radius:10px;padding:10px 14px;cursor:pointer;transition:border-color .2s">
+          <div id="customSoundPickerBtn" style="display:flex;align-items:center;gap:10px;background:var(--surface3);border:1.5px dashed var(--border);border-radius:10px;padding:10px 14px;cursor:pointer;transition:border-color .2s">
             <span style="font-size:22px">🎵</span>
             <div style="flex:1;min-width:0">
               <div style="font-size:12px;font-weight:700">اختر ملف صوتي</div>
-              <div id="customSoundFileName" style="font-size:10px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">MP3 أو WAV — بحد أقصى 15MB</div>
+              <div id="customSoundFileName" style="font-size:10px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">MP3 أو WAV — بحد أقصى 15 ثانية</div>
             </div>
           </div>
-          <input type="file" id="customSoundFile" accept="audio/*" style="position:absolute;opacity:0;width:1px;height:1px;overflow:hidden" onchange="onCustomSoundFileSelected(this)">
+          <input type="file" id="customSoundFile" accept="audio/*" capture style="display:none" onchange="onCustomSoundFileSelected(this)">
+          <script>
+          document.addEventListener('click', function(e){
+            var btn = document.getElementById('customSoundPickerBtn');
+            if(!btn) return;
+            if(btn.contains(e.target)){
+              var inp = document.getElementById('customSoundFile');
+              if(inp){ inp.value=''; inp.click(); }
+            }
+          });
+          </script>
 
           <!-- اختيار الحدث -->
           <div style="display:flex;gap:6px;flex-wrap:wrap" id="soundEventTargetBtns">
@@ -10997,8 +11007,13 @@ async function savePurchase(){
   
   const poAttachment = document.getElementById('poAttachmentData')?.value || '';
   const manualPoNum = document.getElementById('poManualNumber')?.value.trim() || '';
+  if(!manualPoNum){
+    toast('⚠️ يجب كتابة رقم الفاتورة','error');
+    document.getElementById('poManualNumber')?.focus();
+    return;
+  }
   const po = {
-    number: manualPoNum || ('PO-' + Date.now()),
+    number: manualPoNum,
     supplierId, date, items: JSON.parse(JSON.stringify(poItemsList)),
     total, createdBy: currentUser.id, paymentMethod: purchasePayMethod,
     status: 'pending', // pending = معلق, completed = مكتمل
@@ -25360,7 +25375,7 @@ function onCustomSoundFileSelected(input){
   const label = document.getElementById('customSoundFileName');
   const btn   = document.getElementById('uploadSoundBtn');
   if(!file){
-    if(label) label.textContent = 'MP3 أو WAV — بحد أقصى 15MB';
+    if(label) label.textContent = 'MP3 أو WAV — بحد أقصى 15 ثانية';
     if(btn){ btn.disabled=true; btn.style.opacity='0.5'; }
     return;
   }
@@ -25369,8 +25384,28 @@ function onCustomSoundFileSelected(input){
     input.value='';
     return;
   }
-  if(label) label.textContent = '🎵 ' + file.name;
-  if(btn){ btn.disabled=false; btn.style.opacity='1'; }
+  // Check duration ≤ 15 seconds
+  const tempUrl = URL.createObjectURL(file);
+  const audio = new Audio();
+  audio.preload = 'metadata';
+  audio.onloadedmetadata = function(){
+    URL.revokeObjectURL(tempUrl);
+    if(audio.duration > 15){
+      toast('❌ الملف أطول من 15 ثانية (' + Math.round(audio.duration) + ' ث) — الحد الأقصى 15 ثانية','error');
+      input.value='';
+      if(label) label.textContent = 'MP3 أو WAV — بحد أقصى 15 ثانية';
+      if(btn){ btn.disabled=true; btn.style.opacity='0.5'; }
+      return;
+    }
+    if(label) label.textContent = '🎵 ' + file.name + ' (' + Math.round(audio.duration) + ' ث)';
+    if(btn){ btn.disabled=false; btn.style.opacity='1'; }
+  };
+  audio.onerror = function(){
+    URL.revokeObjectURL(tempUrl);
+    if(label) label.textContent = '🎵 ' + file.name;
+    if(btn){ btn.disabled=false; btn.style.opacity='1'; }
+  };
+  audio.src = tempUrl;
 }
 
 // ─── تحديد/إلغاء الحدث المستهدف ──────────────────────────────────
@@ -25463,7 +25498,7 @@ async function uploadCustomSound(){
     toggleSoundTarget('__reset__'); // يمسح التحديد البصري
     const label = document.getElementById('customSoundFileName');
     const btn   = document.getElementById('uploadSoundBtn');
-    if(label) label.textContent = 'MP3 أو WAV — بحد أقصى 15MB';
+    if(label) label.textContent = 'MP3 أو WAV — بحد أقصى 15 ثانية';
     if(btn){ btn.disabled=true; btn.style.opacity='0.5'; }
 
     renderCustomSoundsList();
@@ -28056,8 +28091,14 @@ setTimeout(function() {
 
       <!-- Contact -->
       <div style="text-align:center;margin-top:16px">
-        <a href="#" onclick="if(window.kemetShell)window.kemetShell.openExternal('https://wa.me/201123017448');else window.open('https://wa.me/201123017448','_blank');return false"
-          style="color:#4ade80;font-size:13px;text-decoration:none">📞 تواصل مع المطور للحصول على كود التفعيل</a>
+        <div style="color:#d1d5db;font-size:13px;font-weight:700;margin-bottom:8px">للحصول على كود التفعيل تواصل مع</div>
+        <div style="color:#fff;font-size:16px;font-weight:900;margin-bottom:10px">طاهر عفيفى</div>
+        <div style="display:flex;gap:10px;justify-content:center">
+          <a href="#" onclick="if(window.kemetShell)window.kemetShell.openExternal('tel:01123017448');else window.open('tel:01123017448');return false"
+            style="display:flex;align-items:center;gap:6px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;padding:10px 18px;border-radius:10px;text-decoration:none;font-size:13px;font-weight:700">📞 اتصال<span style='font-family:monospace;font-size:12px;letter-spacing:1px'>01123017448</span></a>
+          <a href="#" onclick="if(window.kemetShell)window.kemetShell.openExternal('https://wa.me/201123017448');else window.open('https://wa.me/201123017448','_blank');return false"
+            style="display:flex;align-items:center;gap:6px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;padding:10px 18px;border-radius:10px;text-decoration:none;font-size:13px;font-weight:700">💬 واتساب</a>
+        </div>
       </div>
     </div>
   </div>
@@ -28138,6 +28179,19 @@ setTimeout(function() {
             if (inp) inp.style.display = 'none';
             if (btn) btn.style.display = 'none';
             if (overlay) overlay.style.display = 'flex';
+          } else {
+            // Not blocked — restore activation UI if overlay was showing blocked state
+            const overlay = document.getElementById('kemetLicenseOverlay');
+            if (overlay && overlay.style.display === 'flex') {
+              const title = document.getElementById('kemetLicTitle');
+              const subtitle = document.getElementById('kemetLicSubtitle');
+              const inp = document.getElementById('kemetActivationInput');
+              const btn = document.querySelector('[onclick="kemetDoActivate()"]');
+              if (title) title.textContent = 'تفعيل البرنامج';
+              if (subtitle) subtitle.textContent = 'أدخل كود التفعيل الخاص بجهازك';
+              if (inp) inp.style.display = '';
+              if (btn) btn.style.display = '';
+            }
           }
         } catch(e) { /* offline */ }
       }
