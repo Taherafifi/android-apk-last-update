@@ -425,7 +425,7 @@
 
     checkUpdate: async () => {
       try {
-        const resp = await fetch(OTA_INFO_URL, { cache: 'no-store' });
+        const resp = await fetch(OTA_INFO_URL + '?_t=' + Date.now(), { cache: 'no-store' });
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
         const info = await resp.json();
 
@@ -498,12 +498,12 @@
     applyUpdate: async () => {
       try {
         // Fetch update_info.json
-        const infoResp = await fetch(OTA_INFO_URL, { cache: 'no-store' });
+        const infoResp = await fetch(OTA_INFO_URL + '?_t=' + Date.now(), { cache: 'no-store' });
         if (!infoResp.ok) throw new Error('info fetch ' + infoResp.status);
         const info = await infoResp.json();
 
         // Fetch index.html
-        const htmlResp = await fetch(OTA_HTML_URL, { cache: 'no-store' });
+        const htmlResp = await fetch(OTA_HTML_URL + '?_t=' + Date.now(), { cache: 'no-store' });
         if (!htmlResp.ok) return { success: false, error: 'ملف التحديث غير موجود' };
         const html = await htmlResp.text();
         if (!html || html.length < 100) {
