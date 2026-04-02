@@ -16671,8 +16671,9 @@ function exportStockCountPDF(){
 // PDF EXPORT HELPER
 // ============================================================
 function printHTML(htmlContent, filename='print'){
+  try {
   const storeName = settings?.storeName || 'نظام نقطة البيع';
-  const isAndroid = (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform()) || (window.kemetBackup && window.kemetBackup.isAvailable && window.kemetBackup.isAvailable());
+  const isAndroid = (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform()) || (window.kemetBackup && typeof window.kemetBackup.saveFile === 'function');
 
   if(isAndroid){
     // ── Android: use in-page fullscreen overlay instead of window.open ──
@@ -16701,15 +16702,27 @@ function printHTML(htmlContent, filename='print'){
 
     const _pdfFilename = filename;
     window._pdfOverlayPrint = function(){
-      overlay.style.display = 'none';
-      window.print();
-      setTimeout(()=> overlay.style.display = 'flex', 500);
+      try {
+        overlay.style.display = 'none';
+        document.body.style.overflow = '';
+        window.print();
+        setTimeout(()=>{ overlay.style.display = 'flex'; document.body.style.overflow = 'hidden'; }, 800);
+      } catch(e) {
+        toast('❌ خطأ في الطباعة: ' + e.message, 'error');
+        overlay.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+      }
     };
     window._pdfOverlayShare = async function(){
       try {
-        const Filesystem = Capacitor.Plugins.Filesystem;
-        const Share = Capacitor.Plugins.Share;
-        if (!Filesystem || !Share) { window._pdfOverlayPrint(); return; }
+        const _Cap = (typeof Capacitor !== 'undefined') ? Capacitor.Plugins : null;
+        const Filesystem = _Cap && _Cap.Filesystem;
+        const Share = _Cap && _Cap.Share;
+        if (!Filesystem || !Share) {
+          toast('⚠️ خدمة المشاركة غير متاحة — جاري استخدام الطباعة', 'error');
+          window._pdfOverlayPrint();
+          return;
+        }
         const contentEl = overlay.querySelector('div[dir="rtl"]:last-child');
         // Generate a well-styled HTML document for sharing
         const htmlDoc = `<!DOCTYPE html><html dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
@@ -16727,14 +16740,20 @@ h1,h2,h3{color:#0f172a}
         await Share.share({ title: _pdfFilename, url: saved.uri, dialogTitle: 'مشاركة التقرير — يمكنك اختيار "حفظ كـ PDF" أو إرسال مباشرة' });
       } catch(e) {
         console.warn('[PDF Share]', e);
+        toast('⚠️ فشل المشاركة — جاري استخدام الطباعة', 'error');
         window._pdfOverlayPrint();
       }
     };
     window._pdfOverlayShareImage = async function(){
       try {
-        const Filesystem = Capacitor.Plugins.Filesystem;
-        const Share = Capacitor.Plugins.Share;
-        if (!Filesystem || !Share) { window._pdfOverlayPrint(); return; }
+        const _Cap2 = (typeof Capacitor !== 'undefined') ? Capacitor.Plugins : null;
+        const Filesystem = _Cap2 && _Cap2.Filesystem;
+        const Share = _Cap2 && _Cap2.Share;
+        if (!Filesystem || !Share) {
+          toast('⚠️ خدمة مشاركة الصور غير متاحة — جاري استخدام الطباعة', 'error');
+          window._pdfOverlayPrint();
+          return;
+        }
         const contentEl = overlay.querySelector('div[dir="rtl"]:last-child');
         if(!contentEl){ window._pdfOverlayShare(); return; }
         // Create an offscreen iframe to render and capture as image
@@ -16773,17 +16792,18 @@ th{background:#f1f5f9;font-weight:700}tr:nth-child(even){background:#f8fafc}
           try {
             const saved = await Filesystem.writeFile({ path: 'KEMET_POS_Reports/' + fname, data: base64, directory: 'DOCUMENTS', recursive: true });
             await Share.share({ title: _pdfFilename, url: saved.uri, dialogTitle: 'مشاركة كصورة' });
-          } catch(e2){ console.warn('[Image Share save]',e2); window._pdfOverlayShare(); }
+          } catch(e2){ console.warn('[Image Share save]',e2); toast('⚠️ فشل حفظ الصورة — جاري المشاركة كملف','error'); window._pdfOverlayShare(); }
         };
         img.onerror = function(){
           URL.revokeObjectURL(url);
-          document.body.removeChild(iframe);
-          // Fallback: share as HTML file
+          if(iframe.parentNode) document.body.removeChild(iframe);
+          toast('⚠️ فشل تحويل الصورة — جاري المشاركة كملف','error');
           window._pdfOverlayShare();
         };
         img.src = url;
       } catch(e) {
         console.warn('[Image Share]', e);
+        toast('⚠️ فشل المشاركة كصورة', 'error');
         window._pdfOverlayShare();
       }
     };
@@ -17058,6 +17078,10 @@ th{background:#f1f5f9;font-weight:700}tr:nth-child(even){background:#f8fafc}
     ${htmlContent}
     </body></html>`);
   w.document.close();
+  } catch(e) {
+    console.error('[printHTML error]', e);
+    if(typeof toast === 'function') toast('❌ خطأ في فتح المعاينة: ' + e.message, 'error');
+  }
 }
 
 // helper: build a styled PDF page shell
