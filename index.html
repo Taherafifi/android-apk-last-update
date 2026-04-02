@@ -5,35 +5,31 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <!-- Capacitor Runtime -->
 <script src="capacitor.js"></script>
-<!-- OTA v3: localStorage-based update system (no Filesystem dependency) -->
+<!-- OTA v4: cleanup stale data (NEVER use document.write — it kills Capacitor bridge) -->
 <script>
 (function(){
-  // Check if there's a pending OTA update in localStorage
-  var _pendingOTA = null;
-  try { _pendingOTA = localStorage.getItem('kemet_ota_pending'); } catch(e){}
-  if(_pendingOTA && _pendingOTA.length > 100){
-    try {
-      localStorage.removeItem('kemet_ota_pending');
-      // Write the new HTML — Capacitor re-injects its bridge after <head>
-      document.open();
-      document.write(_pendingOTA);
-      document.close();
-      return; // stop execution of this script
-    } catch(e){ /* failed, continue with current page */ }
-  }
-  // Block old bridge.js from using document.write or localStorage OTA
-  try { sessionStorage.setItem('kemet_ota_loaded','1'); } catch(e){}
+  try { localStorage.removeItem('kemet_ota_pending'); } catch(e){}
   try { localStorage.removeItem('kemet_ota_html'); } catch(e){}
+  try { sessionStorage.setItem('kemet_ota_loaded','1'); } catch(e){}
 })();
 </script>
 <!-- Android Bridge (replaces Electron preload) -->
 <script src="kemet-android-bridge.js"></script>
-<!-- OTA v3: Override kemetUpdater with localStorage approach -->
+<!-- OTA v4: Override kemetUpdater — DOM replacement approach (preserves Capacitor bridge) -->
 <script>
 (function(){
   var OTA_BASE='https://raw.githubusercontent.com/Taherafifi/android-apk-last-update/main/';
+  var BUNDLED_VERSION='2.1.0';
 
   if(window.kemetUpdater){
+    // getVersion: localStorage → bridge → bundled fallback
+    var _origGetVersion=window.kemetUpdater.getVersion;
+    window.kemetUpdater.getVersion=async function(){
+      try{var lv=localStorage.getItem('kemet_ota_ver');if(lv)return lv;}catch(e){}
+      try{var bv=await _origGetVersion();if(bv&&bv!=='1.0.0')return bv;}catch(e){}
+      return BUNDLED_VERSION;
+    };
+
     // checkUpdate with cache-busting
     window.kemetUpdater.checkUpdate=async function(){
       try{
@@ -49,7 +45,8 @@
         return{available:false,error:true,message:'تعذّر التحقّق من التحديثات'};
       }
     };
-    // applyUpdate: save to localStorage then reload (Capacitor re-injects bridge on reload)
+
+    // applyUpdate: DOM replacement (keeps Capacitor bridge alive in <head>)
     window.kemetUpdater.applyUpdate=async function(prog){
       try{
         if(prog)prog('جارِ تحميل التحديث...');
@@ -59,29 +56,32 @@
         var htmlR=await fetch(OTA_BASE+'index.html?_t='+Date.now(),{cache:'no-store'});
         if(!htmlR.ok)return{success:false,error:'ملف التحديث غير موجود'};
         var html=await htmlR.text();
-        if(!html||html.length<100)return{success:false,error:'ملف التحديث فارغ'};
-        if(prog)prog('جارِ التطبيق...');
-        // Save OTA version to localStorage (since Preferences may not be available)
+        if(!html||html.length<1000)return{success:false,error:'ملف التحديث فارغ'};
+        if(prog)prog('جارِ تطبيق التحديث...');
+        // Save version
         try{localStorage.setItem('kemet_ota_ver',info.version);}catch(e){}
-        // Save pending HTML — on reload the script at top of <head> will apply it
-        localStorage.setItem('kemet_ota_pending',html);
-        // Reload — Capacitor WebView server will serve the base HTML,
-        // the <head> script sees kemet_ota_pending, does document.write,
-        // Capacitor's native injector re-injects bridge JS after <head>
-        setTimeout(function(){ location.reload(); },200);
+        // Parse new HTML
+        var parser=new DOMParser();
+        var newDoc=parser.parseFromString(html,'text/html');
+        // Replace styles: remove old <style> from head, add new ones
+        var oldStyles=document.head.querySelectorAll('style');
+        oldStyles.forEach(function(s){s.remove();});
+        var newStyles=newDoc.querySelectorAll('style');
+        newStyles.forEach(function(s){document.head.appendChild(document.adoptNode(s));});
+        // Replace body content
+        document.body.innerHTML=newDoc.body.innerHTML;
+        // Re-execute inline scripts in body (they don't auto-run when set via innerHTML)
+        var scripts=document.body.querySelectorAll('script');
+        scripts.forEach(function(old){
+          var ns=document.createElement('script');
+          if(old.src){ns.src=old.src;}
+          else{ns.textContent=old.textContent;}
+          old.parentNode.replaceChild(ns,old);
+        });
         return{success:true,version:info.version};
       }catch(e){
         return{success:false,error:'فشل التحديث: '+e.message};
       }
-    };
-    // Override getVersion to also check localStorage
-    var _origGetVersion = window.kemetUpdater.getVersion;
-    window.kemetUpdater.getVersion=async function(){
-      try{
-        var lv=localStorage.getItem('kemet_ota_ver');
-        if(lv)return lv;
-      }catch(e){}
-      return _origGetVersion();
     };
   }
 
