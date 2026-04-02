@@ -19,7 +19,7 @@
 <script>
 (function(){
   var OTA_BASE='https://raw.githubusercontent.com/Taherafifi/android-apk-last-update/main/';
-  var BUNDLED_VERSION='2.1.4';
+  var BUNDLED_VERSION='2.1.5';
 
   if(window.kemetUpdater){
     // getVersion: localStorage → bridge → bundled fallback
@@ -12979,7 +12979,7 @@ async function finalizeShiftClose(actualCash, expected, variance, actualNetwork=
   
   // 🔴 تسجيل العجز تلقائياً في شئون المستخدمين (employeeDebts)
   if(variance < -0.01 || varianceNetwork < -0.01){
-    const totalDeficit = Math.abs(variance) + Math.abs(varianceNetwork);
+    const totalDeficit = Math.abs(Math.min(0, variance)) + Math.abs(Math.min(0, varianceNetwork));
     const cashierUser = allUsers.find(u => u.name === currentShift.cashierName);
     
     if(cashierUser){
@@ -12987,8 +12987,8 @@ async function finalizeShiftClose(actualCash, expected, variance, actualNetwork=
         employeeId: cashierUser.id,
         employeeName: cashierUser.name,
         amount: totalDeficit,
-        type: 'deficit', // نوع: عجز
-        source: 'cashier_variance', // مصدر: عجز كاشير
+        type: 'deficit',
+        source: 'cashier_variance',
         originMonth: (() => {
           const now = new Date();
           const yr = now.getFullYear();
@@ -12999,7 +12999,7 @@ async function finalizeShiftClose(actualCash, expected, variance, actualNetwork=
         date: new Date().toISOString(),
         recordedBy: currentUser.name,
         shiftId: currentShift.id,
-        status: 'pending' // في الانتظار
+        status: 'pending'
       };
       
       const deficitId = await dbPut('employeeDebts', deficit);
@@ -13007,6 +13007,19 @@ async function finalizeShiftClose(actualCash, expected, variance, actualNetwork=
       allEmployeeDebts.push(deficit);
       
       addAuditLog('employee','⚠️',`تسجيل عجز ${fmt(totalDeficit)} ${cur} للكاشير ${h(currentShift.cashierName)}`, 'النظام');
+    }
+    
+    // 🔧 تصحيح رصيد الدرج: خصم العجز من الحركات حتى لا يتكرر في الوردية التالية
+    const cashDeficit = Math.abs(Math.min(0, variance));
+    const netDeficit  = Math.abs(Math.min(0, varianceNetwork));
+    const deficitDate = new Date().toISOString();
+    if(cashDeficit > 0.01){
+      const dEntry = { type:'out', amount:cashDeficit, date:deficitDate, description:`تصحيح عجز كاش — وردية ${h(currentShift.cashierName)}`, source:'deficit_correction', cashierId:currentShift.cashierId, cashierName:currentShift.cashierName };
+      const dId = await dbPut('drawerEntries', dEntry); dEntry.id = dId; allDrawerEntries.push(dEntry);
+    }
+    if(netDeficit > 0.01){
+      const dEntry = { type:'out', amount:netDeficit, date:deficitDate, description:`تصحيح عجز شبكة — وردية ${h(currentShift.cashierName)}`, source:'deficit_correction', isNetwork:true, cashierId:currentShift.cashierId, cashierName:currentShift.cashierName };
+      const dId = await dbPut('drawerEntries', dEntry); dEntry.id = dId; allDrawerEntries.push(dEntry);
     }
   }
   
@@ -13118,7 +13131,32 @@ async function approvePendingTransfer(shiftId){
   setTimeout(() => startDollarRain(7000), 300);
   toast(`✅ تم اعتماد التحويل للخزنة الرئيسية`, 'success');
   updateApprovalsBadge();
+  renderApprovalsSection();
   }); // end requireAdminPassword callback
+}
+
+// ── اعتماد العجز ──
+async function approveDeficit(deficitId){
+  const debt = allEmployeeDebts.find(d => d.id === deficitId);
+  if(!debt){ toast('لم يتم العثور على سجل العجز','warning'); return; }
+  if(debt.status !== 'pending'){ toast('تم اعتماد هذا العجز بالفعل','info'); return; }
+  if(currentUser.role !== 'admin' && currentUser.role !== 'manager'){
+    toast('🚫 المدير فقط يمكنه اعتماد العجز','error'); return;
+  }
+  requireAdminPassword('اعتماد العجز', async function(){
+    debt.status = 'approved';
+    debt.approvedBy = currentUser.name;
+    debt.approvedAt = new Date().toISOString();
+    await dbPut('employeeDebts', debt);
+    const idx = allEmployeeDebts.findIndex(d => d.id === deficitId);
+    if(idx >= 0) allEmployeeDebts[idx] = debt;
+    addAuditLog('employee','✅',`اعتماد عجز ${fmt(debt.amount)} ${settings.currency||'ج.م'} — ${h(debt.employeeName)}`, currentUser.name);
+    toast(`✅ تم اعتماد العجز على ${debt.employeeName}`,'success');
+    updateApprovalsBadge();
+    renderApprovalsSection();
+    renderEmployees();
+    if(currentPanelEmployeeId) refreshEmpPanel();
+  });
 }
 
 function printXReport(){
@@ -13932,8 +13970,10 @@ function getManagerPendingApprovals(){
       title: `عجز معلق — ${d.employeeName || 'غير محدد'}`,
       desc: `${d.description || ''} — ${fmt(d.amount)} ${settings.currency||'ج.م'}`,
       time: d.date || '',
-      actionLabel: '👁️ مراجعة',
-      actionFn: `navigateTo('employeeDebtsSection')`,
+      actionLabel: '✅ اعتماد العجز',
+      actionFn: `approveDeficit(${d.id})`,
+      reviewLabel: '👁️ مراجعة',
+      reviewFn: `navigateTo('employeeDebtsSection')`,
       severity: 'error'
     });
   });
@@ -14005,7 +14045,10 @@ function renderApprovalsSection(){
           <div style="font-size:12px;color:var(--text2);margin-bottom:6px">${item.desc}</div>
           ${item.time ? `<div style="font-size:11px;color:var(--text3)">🕐 ${new Date(item.time).toLocaleString('ar')}</div>` : ''}
         </div>
-        <button class="btn btn-primary btn-sm" onclick="${item.actionFn}" style="white-space:nowrap;flex-shrink:0">${item.actionLabel}</button>
+        <div style="display:flex;gap:6px;flex-shrink:0;flex-direction:column">
+          <button class="btn btn-primary btn-sm" onclick="${item.actionFn}" style="white-space:nowrap">${item.actionLabel}</button>
+          ${item.reviewFn ? `<button class="btn btn-secondary btn-sm" onclick="${item.reviewFn}" style="white-space:nowrap">${item.reviewLabel}</button>` : ''}
+        </div>
       </div>
     </div>`).join('')}`;
 }
