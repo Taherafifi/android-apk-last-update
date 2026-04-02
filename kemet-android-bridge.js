@@ -8,24 +8,6 @@
   'use strict';
 
   // ═══════════════════════════════════════════
-  //  🔥 OTA Sync Loader — runs BEFORE anything else
-  //  Uses localStorage (synchronous) to avoid document.write in async context
-  // ═══════════════════════════════════════════
-  try {
-    var _otaHtml = localStorage.getItem('kemet_ota_html');
-    if (_otaHtml && _otaHtml.length > 100 && !sessionStorage.getItem('kemet_ota_loaded')) {
-      localStorage.removeItem('kemet_ota_html');
-      sessionStorage.setItem('kemet_ota_loaded', '1');
-      document.open();
-      document.write(_otaHtml);
-      document.close();
-      return; // stop bridge execution — new page will load its own
-    }
-  } catch(_otaSyncErr) {
-    // localStorage not available or quota exceeded
-  }
-
-  // ═══════════════════════════════════════════
   //  Ed25519 Public Key (same as Electron keys/public.pem)
   // ═══════════════════════════════════════════
   const PUBLIC_KEY_B64 = 'MCowBQYDK2VwAyEAb/y/kKQbEf/TninitGdy1WL/+VCndl5SZn7x1LBpv0I=';
@@ -528,9 +510,14 @@
           return { success: false, error: 'ملف التحديث فارغ أو تالف' };
         }
 
+        // Inject <base href="/"> so scripts resolve from app root when loaded from file URL
+        let patchedHtml = html;
+        if (patchedHtml.indexOf('<base ') === -1) {
+          patchedHtml = patchedHtml.replace('<head>', '<head>\n<base href="/">');
+        }
+
         // Inject Capacitor + Bridge scripts before </head>
         const capInject = '\n<script src="capacitor.js"><\/script>\n<script src="kemet-android-bridge.js"><\/script>\n';
-        let patchedHtml = html;
         if (patchedHtml.indexOf('kemet-android-bridge.js') === -1) {
           patchedHtml = patchedHtml.replace('</head>', capInject + '</head>');
         }
@@ -550,18 +537,16 @@
         // Save version
         await Prefs.set({ key: OTA_FILE_KEY, value: info.version });
 
-        console.log('[OTA] Saved v' + info.version + ', reloading…');
+        console.log('[OTA] Saved v' + info.version + ', navigating to file…');
 
-        // Save to localStorage for synchronous loading on reload
-        try { localStorage.setItem('kemet_ota_html', patchedHtml); } catch(e) {
-          console.warn('[OTA] localStorage save failed, will retry on cold start');
+        // Navigate to the saved file via Capacitor file URL (preserves native bridge)
+        try {
+          var uriResult = await Fs.getUri({ path: OTA_HTML_PATH, directory: 'DATA' });
+          var webUrl = window.Capacitor.convertFileSrc(uriResult.uri);
+          window.location.href = webUrl;
+        } catch(navErr) {
+          console.warn('[OTA] file navigation failed:', navErr);
         }
-
-        // Clear OTA guard so sync loader picks it up
-        sessionStorage.removeItem('kemet_ota_loaded');
-
-        // Reload page — sync loader in bridge will pick up from localStorage
-        setTimeout(function(){ location.reload(); }, 300);
 
         return { success: true, version: info.version };
       } catch (e) {
@@ -573,11 +558,12 @@
 
   // ═══════════════════════════════════════════
   //  OTA Startup Loader — Load saved OTA on cold start
-  //  Reads from Filesystem, saves to localStorage, then reloads
-  //  The sync loader at the top of this file will pick it up
+  //  Navigates to the saved file via Capacitor file URL
+  //  This preserves the native bridge (unlike document.write)
   // ═══════════════════════════════════════════
   (async function _kemetOTAStartup() {
-    if (sessionStorage.getItem('kemet_ota_loaded')) return;
+    // Already on OTA file URL — don't redirect again
+    if (window.location.href.indexOf('_capacitor_file_') !== -1) return;
     if (!isNative()) return;
     try {
       const Prefs = getCapPlugin('Preferences');
@@ -587,21 +573,22 @@
       const { value: ver } = await Prefs.get({ key: OTA_FILE_KEY });
       if (!ver) return;
 
-      const result = await Fs.readFile({
-        path: OTA_HTML_PATH,
-        directory: 'DATA',
-        encoding: 'utf8'
-      });
+      // Verify OTA file exists
+      await Fs.stat({ path: OTA_HTML_PATH, directory: 'DATA' });
 
-      if (result.data && result.data.length > 100) {
-        console.log('[OTA] Cold start: loading saved OTA v' + ver + ' via localStorage…');
-        try {
-          localStorage.setItem('kemet_ota_html', result.data);
-          location.reload();
-        } catch(e) {
-          console.warn('[OTA] localStorage save failed:', e);
+      // Ensure <base href="/"> exists (fix older OTA files saved before this version)
+      try {
+        var rd = await Fs.readFile({ path: OTA_HTML_PATH, directory: 'DATA', encoding: 'utf8' });
+        if (rd.data && rd.data.length > 100 && rd.data.indexOf('<base ') === -1) {
+          var fixed = rd.data.replace('<head>', '<head>\n<base href="/">');
+          await Fs.writeFile({ path: OTA_HTML_PATH, data: fixed, directory: 'DATA', encoding: 'utf8' });
         }
-      }
+      } catch(fixErr) { /* ignore fix errors */ }
+
+      var uriResult = await Fs.getUri({ path: OTA_HTML_PATH, directory: 'DATA' });
+      var webUrl = window.Capacitor.convertFileSrc(uriResult.uri);
+      console.log('[OTA] Cold start: navigating to OTA v' + ver + ' → ' + webUrl);
+      window.location.href = webUrl;
     } catch (e) {
       // No OTA file saved — continue with bundled version
     }

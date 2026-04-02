@@ -1250,7 +1250,7 @@ body.kiosk .main-content > *{padding-right:calc(180px + 20px)!important}
 
 /* PRINT STYLES */
 @media print{
-  body>*:not(#receiptPrint){display:none!important}
+  body>*:not(#receiptPrint):not(#pdfOverlay){display:none!important}
   #receiptPrint{display:block!important}
 }
 
@@ -1854,7 +1854,11 @@ body {
 
 /* ── PDF overlay print ── */
 @media print {
+  body > *:not(#pdfOverlay) { display: none !important; }
+  #loadingScreen, #loginScreen, #app, #welcomeSplash { display: none !important; }
+  #pdfOverlay { position: static !important; background: #fff !important; display: block !important; }
   #pdfOverlay > div:first-child { display: none !important; }
+  #pdfOverlay > div:last-child { overflow: visible !important; }
 }
 </style>
 
@@ -16746,14 +16750,10 @@ function printHTML(htmlContent, filename='print'){
     const _pdfFilename = filename;
     window._pdfOverlayPrint = function(){
       try {
-        overlay.style.display = 'none';
-        document.body.style.overflow = '';
+        // @media print CSS hides everything except pdfOverlay content
         window.print();
-        setTimeout(()=>{ overlay.style.display = 'flex'; document.body.style.overflow = 'hidden'; }, 800);
       } catch(e) {
-        toast('❌ خطأ في الطباعة: ' + e.message, 'error');
-        overlay.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
+        toast('❌ خطأ في الطباعة — جرب زر مشاركة', 'error');
       }
     };
     window._pdfOverlayShare = async function(){
