@@ -19,7 +19,7 @@
 <script>
 (function(){
   var OTA_BASE='https://raw.githubusercontent.com/Taherafifi/android-apk-last-update/main/';
-  var BUNDLED_VERSION='2.1.0';
+  var BUNDLED_VERSION='2.1.1';
 
   if(window.kemetUpdater){
     // getVersion: localStorage → bridge → bundled fallback
@@ -5831,7 +5831,7 @@ function closeQR(){
               <div id="customSoundFileName" style="font-size:10px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">MP3 أو WAV — بحد أقصى 15 ثانية</div>
             </div>
           </div>
-          <input type="file" id="customSoundFile" accept="audio/*" capture style="display:none" onchange="onCustomSoundFileSelected(this)">
+          <input type="file" id="customSoundFile" accept="audio/*" style="display:none" onchange="onCustomSoundFileSelected(this)">
           <script>
           document.addEventListener('click', function(e){
             var btn = document.getElementById('customSoundPickerBtn');
@@ -16851,6 +16851,10 @@ function printHTML(htmlContent, filename='print'){
     document.body.style.overflow = 'hidden';
 
     const _pdfFilename = filename;
+    // Helper: get Capacitor plugin safely (same as bridge.js)
+    function _getPlugin(name){
+      try { return window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins[name]; } catch(e){ return null; }
+    }
     window._pdfOverlayPrint = function(){
       try {
         // @media print CSS hides everything except pdfOverlay content
@@ -16861,14 +16865,8 @@ function printHTML(htmlContent, filename='print'){
     };
     window._pdfOverlayShare = async function(){
       try {
-        const _Cap = (typeof Capacitor !== 'undefined') ? Capacitor.Plugins : null;
-        const Filesystem = _Cap && _Cap.Filesystem;
-        const Share = _Cap && _Cap.Share;
-        if (!Filesystem || !Share) {
-          toast('⚠️ خدمة المشاركة غير متاحة — جاري استخدام الطباعة', 'error');
-          window._pdfOverlayPrint();
-          return;
-        }
+        const Filesystem = _getPlugin('Filesystem');
+        const Share = _getPlugin('Share');
         const contentEl = overlay.querySelector('div[dir="rtl"]:last-child');
         // Generate a well-styled HTML document for sharing
         const htmlDoc = `<!DOCTYPE html><html dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
@@ -16881,9 +16879,16 @@ tr:nth-child(even){background:#f8fafc}
 h1,h2,h3{color:#0f172a}
 .badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700}
 </style></head><body>${contentEl ? contentEl.innerHTML : htmlContent}</body></html>`;
-        const fname = _pdfFilename + '_' + Date.now() + '.html';
-        const saved = await Filesystem.writeFile({ path: 'KEMET_POS_Reports/' + fname, data: btoa(unescape(encodeURIComponent(htmlDoc))), directory: 'DOCUMENTS', recursive: true });
-        await Share.share({ title: _pdfFilename, url: saved.uri, dialogTitle: 'مشاركة التقرير — يمكنك اختيار "حفظ كـ PDF" أو إرسال مباشرة' });
+        if(Filesystem && Share){
+          const fname = _pdfFilename + '_' + Date.now() + '.html';
+          const saved = await Filesystem.writeFile({ path: 'KEMET_POS_Reports/' + fname, data: btoa(unescape(encodeURIComponent(htmlDoc))), directory: 'DOCUMENTS', recursive: true });
+          await Share.share({ title: _pdfFilename, url: saved.uri, dialogTitle: 'مشاركة التقرير — يمكنك اختيار "حفظ كـ PDF" أو إرسال مباشرة' });
+        } else {
+          // Fallback: open in new window for printing
+          var w = window.open('','_blank');
+          if(w){ w.document.write(htmlDoc+'<script>window.print()<\/script>'); w.document.close(); }
+          else { window.print(); }
+        }
       } catch(e) {
         console.warn('[PDF Share]', e);
         toast('⚠️ فشل المشاركة — جاري استخدام الطباعة', 'error');
@@ -16892,12 +16897,11 @@ h1,h2,h3{color:#0f172a}
     };
     window._pdfOverlayShareImage = async function(){
       try {
-        const _Cap2 = (typeof Capacitor !== 'undefined') ? Capacitor.Plugins : null;
-        const Filesystem = _Cap2 && _Cap2.Filesystem;
-        const Share = _Cap2 && _Cap2.Share;
+        const Filesystem = _getPlugin('Filesystem');
+        const Share = _getPlugin('Share');
         if (!Filesystem || !Share) {
-          toast('⚠️ خدمة مشاركة الصور غير متاحة — جاري استخدام الطباعة', 'error');
-          window._pdfOverlayPrint();
+          toast('⚠️ خدمة مشاركة الصور غير متاحة — جاري المشاركة كملف', 'error');
+          window._pdfOverlayShare();
           return;
         }
         const contentEl = overlay.querySelector('div[dir="rtl"]:last-child');
@@ -28173,7 +28177,7 @@ setTimeout(function() {
             if (subtitle) subtitle.textContent = result.message || 'تواصل مع المطور';
             const inp = document.getElementById('kemetActivationInput');
             const btn = document.querySelector('[onclick="kemetDoActivate()"]');
-            if (inp) inp.style.display = 'none';
+            if (inp) { inp.style.display = 'none'; if(inp.parentNode) inp.parentNode.style.display = 'none'; }
             if (btn) btn.style.display = 'none';
             if (overlay) overlay.style.display = 'flex';
           } else {
@@ -28186,7 +28190,7 @@ setTimeout(function() {
               const btn = document.querySelector('[onclick="kemetDoActivate()"]');
               if (title) title.textContent = 'تفعيل البرنامج';
               if (subtitle) subtitle.textContent = 'أدخل كود التفعيل الخاص بجهازك';
-              if (inp) inp.style.display = '';
+              if (inp) { inp.style.display = ''; if(inp.parentNode) inp.parentNode.style.display = ''; }
               if (btn) btn.style.display = '';
             }
           }
@@ -28216,6 +28220,7 @@ setTimeout(function() {
       } else if (status.reason === 'remote_blocked') {
         if (title) title.textContent = 'تم إيقاف الترخيص';
         if (subtitle) subtitle.textContent = status.message || 'تواصل مع المطور';
+        document.getElementById('kemetActivationInput').parentNode.style.display = 'none';
         document.getElementById('kemetActivationInput').style.display = 'none';
         document.querySelector('[onclick="kemetDoActivate()"]').style.display = 'none';
       }
