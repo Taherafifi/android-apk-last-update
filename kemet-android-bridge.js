@@ -391,8 +391,22 @@
           return;
         }
         if (url.indexOf('wa.me') !== -1 || url.indexOf('whatsapp') !== -1) {
-          var intentUrl = 'intent://' + url.replace(/^https?:\/\//, '') + '#Intent;scheme=https;package=com.whatsapp;end';
-          window.location.href = intentUrl;
+          // Try Capacitor App plugin openUrl (handles intents natively)
+          var AppPlugin = getCapPlugin('App');
+          if (AppPlugin && AppPlugin.openUrl) {
+            try {
+              await AppPlugin.openUrl({ url: url });
+              return;
+            } catch(ae) { console.warn('[WA App.openUrl]', ae); }
+          }
+          // Fallback: use api.whatsapp.com which Android auto-resolves to WhatsApp app
+          var apiUrl = url.replace('wa.me', 'api.whatsapp.com/send?phone=').replace(/\/send\?phone=\//, '/send?phone=');
+          if(url.indexOf('wa.me/') !== -1){
+            var phone = url.split('wa.me/')[1].split('?')[0].split('#')[0];
+            var text = url.indexOf('text=') !== -1 ? url.split('text=')[1] : '';
+            apiUrl = 'https://api.whatsapp.com/send?phone=' + phone + (text ? '&text=' + text : '');
+          }
+          window.open(apiUrl, '_system');
           return;
         }
         const Browser = getCapPlugin('Browser');

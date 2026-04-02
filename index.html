@@ -19,7 +19,7 @@
 <script>
 (function(){
   var OTA_BASE='https://raw.githubusercontent.com/Taherafifi/android-apk-last-update/main/';
-  var BUNDLED_VERSION='2.1.5';
+  var BUNDLED_VERSION='2.1.6';
 
   if(window.kemetUpdater){
     // getVersion: localStorage → bridge → bundled fallback
@@ -26987,7 +26987,9 @@ function sendEmpDetailsWhatsApp(employeeId){
   
   const msg = 'مرحباً ' + emp.name + ' 👋\nمن ' + store + '\n\n💰 إجمالي العجز الأصلي: ' + fmt(totalDeficit) + ' ' + cur + '\n✅ تم السداد: ' + fmt(totalPaid) + ' ' + cur + '\n🔴 المتبقي عليك: ' + fmt(remaining) + ' ' + cur + '\n\nنرجو السداد في أقرب وقت 🙏';
   
-  window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(msg), '_blank');
+  var waUrl = 'https://wa.me/' + phone + '?text=' + encodeURIComponent(msg);
+  if(window.kemetShell) window.kemetShell.openExternal(waUrl);
+  else window.open(waUrl, '_blank');
 }
 
 async function clearEmployeeDebt(employeeId){
