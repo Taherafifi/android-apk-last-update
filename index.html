@@ -19,7 +19,7 @@
 <script>
 (function(){
   var OTA_BASE='https://raw.githubusercontent.com/Taherafifi/android-apk-last-update/main/';
-  var BUNDLED_VERSION='2.1.1';
+  var BUNDLED_VERSION='2.1.2';
 
   if(window.kemetUpdater){
     // getVersion: localStorage → bridge → bundled fallback
@@ -93,6 +93,21 @@
       if(msg)msg.innerHTML='استغرق التحميل وقتاً طويلاً<br><button onclick="location.reload()" style="margin-top:12px;padding:10px 24px;background:#f59e0b;border:none;border-radius:10px;font-family:Cairo,sans-serif;font-size:14px;font-weight:700;cursor:pointer;color:#000">🔄 إعادة المحاولة</button>';
     }
   },15000);
+})();
+</script>
+<!-- Request Android permissions on startup -->
+<script>
+(function(){
+  if(!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) return;
+  // Request permissions after a short delay to ensure Capacitor is ready
+  setTimeout(function(){
+    try {
+      var perms = [];
+      if(window.Capacitor.Plugins.Camera) perms.push(window.Capacitor.Plugins.Camera.requestPermissions().catch(function(){}));
+      if(window.Capacitor.Plugins.Geolocation) perms.push(window.Capacitor.Plugins.Geolocation.requestPermissions().catch(function(){}));
+      if(window.Capacitor.Plugins.Filesystem) perms.push(window.Capacitor.Plugins.Filesystem.requestPermissions().catch(function(){}));
+    } catch(e){}
+  }, 2000);
 })();
 </script>
 <title>كيميت — KEMET POS</title>
@@ -16884,10 +16899,19 @@ h1,h2,h3{color:#0f172a}
           const saved = await Filesystem.writeFile({ path: 'KEMET_POS_Reports/' + fname, data: btoa(unescape(encodeURIComponent(htmlDoc))), directory: 'DOCUMENTS', recursive: true });
           await Share.share({ title: _pdfFilename, url: saved.uri, dialogTitle: 'مشاركة التقرير — يمكنك اختيار "حفظ كـ PDF" أو إرسال مباشرة' });
         } else {
-          // Fallback: open in new window for printing
-          var w = window.open('','_blank');
-          if(w){ w.document.write(htmlDoc+'<script>window.print()<\/script>'); w.document.close(); }
-          else { window.print(); }
+          // Fallback: use Web Share API (works natively on Android)
+          if(navigator.share){
+            try {
+              var blob = new Blob([htmlDoc], {type:'text/html'});
+              var file = new File([blob], (_pdfFilename||'report')+'.html', {type:'text/html'});
+              if(navigator.canShare && navigator.canShare({files:[file]})){
+                await navigator.share({files:[file], title:_pdfFilename||'تقرير'});
+                return;
+              }
+            } catch(e2){ console.warn('[Web Share fallback]',e2); }
+          }
+          // Ultimate fallback: print dialog (has built-in back/close)
+          window.print();
         }
       } catch(e) {
         console.warn('[PDF Share]', e);
@@ -16899,58 +16923,35 @@ h1,h2,h3{color:#0f172a}
       try {
         const Filesystem = _getPlugin('Filesystem');
         const Share = _getPlugin('Share');
-        if (!Filesystem || !Share) {
-          toast('⚠️ خدمة مشاركة الصور غير متاحة — جاري المشاركة كملف', 'error');
-          window._pdfOverlayShare();
-          return;
-        }
         const contentEl = overlay.querySelector('div[dir="rtl"]:last-child');
         if(!contentEl){ window._pdfOverlayShare(); return; }
-        // Create an offscreen iframe to render and capture as image
-        const iframe = document.createElement('iframe');
-        iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:800px;border:none';
-        document.body.appendChild(iframe);
-        const iDoc = iframe.contentDocument || iframe.contentWindow.document;
-        iDoc.open();
-        iDoc.write(`<!DOCTYPE html><html dir="rtl"><head><meta charset="utf-8"><style>
+        // Build styled HTML for the report
+        const styledHtml = `<!DOCTYPE html><html dir="rtl"><head><meta charset="utf-8"><style>
 body{font-family:'Cairo','Segoe UI',sans-serif;padding:20px;direction:rtl;color:#1e293b;background:#fff;margin:0;width:760px}
 table{border-collapse:collapse;width:100%;margin:10px 0}th,td{border:1px solid #cbd5e1;padding:8px;text-align:right}
 th{background:#f1f5f9;font-weight:700}tr:nth-child(even){background:#f8fafc}
-</style></head><body>${contentEl.innerHTML}</body></html>`);
-        iDoc.close();
-        await new Promise(r => { iframe.onload = r; setTimeout(r, 1500); });
-        iframe.style.height = iDoc.body.scrollHeight + 'px';
-        // Use html2canvas-like approach: convert to SVG foreignObject then canvas
-        const svgData = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="${iDoc.body.scrollHeight}">
-          <foreignObject width="100%" height="100%">
-            <div xmlns="http://www.w3.org/1999/xhtml">${new XMLSerializer().serializeToString(iDoc.documentElement)}</div>
-          </foreignObject></svg>`;
-        const svgBlob = new Blob([svgData], {type:'image/svg+xml;charset=utf-8'});
-        const url = URL.createObjectURL(svgBlob);
-        const img = new Image();
-        img.onload = async function(){
-          const canvas = document.createElement('canvas');
-          canvas.width = 800; canvas.height = iDoc.body.scrollHeight;
-          const ctx = canvas.getContext('2d');
-          ctx.fillStyle = '#fff'; ctx.fillRect(0,0,canvas.width,canvas.height);
-          ctx.drawImage(img, 0, 0);
-          URL.revokeObjectURL(url);
-          document.body.removeChild(iframe);
-          const dataUrl = canvas.toDataURL('image/png');
-          const base64 = dataUrl.split(',')[1];
-          const fname = _pdfFilename + '_' + Date.now() + '.png';
+</style></head><body>${contentEl.innerHTML}</body></html>`;
+        // Try Web Share API with HTML file (works on Android even without Capacitor plugins)
+        if(navigator.share){
           try {
-            const saved = await Filesystem.writeFile({ path: 'KEMET_POS_Reports/' + fname, data: base64, directory: 'DOCUMENTS', recursive: true });
-            await Share.share({ title: _pdfFilename, url: saved.uri, dialogTitle: 'مشاركة كصورة' });
-          } catch(e2){ console.warn('[Image Share save]',e2); toast('⚠️ فشل حفظ الصورة — جاري المشاركة كملف','error'); window._pdfOverlayShare(); }
-        };
-        img.onerror = function(){
-          URL.revokeObjectURL(url);
-          if(iframe.parentNode) document.body.removeChild(iframe);
-          toast('⚠️ فشل تحويل الصورة — جاري المشاركة كملف','error');
-          window._pdfOverlayShare();
-        };
-        img.src = url;
+            var blob = new Blob([styledHtml], {type:'text/html'});
+            var file = new File([blob], (_pdfFilename||'report')+'.html', {type:'text/html'});
+            if(navigator.canShare && navigator.canShare({files:[file]})){
+              await navigator.share({files:[file], title:_pdfFilename||'تقرير'});
+              return;
+            }
+          } catch(e2){ console.warn('[Image→WebShare]',e2); }
+        }
+        // Try Capacitor Filesystem+Share as HTML file
+        if(Filesystem && Share){
+          const fname = _pdfFilename + '_' + Date.now() + '.html';
+          const saved = await Filesystem.writeFile({ path: 'KEMET_POS_Reports/' + fname, data: btoa(unescape(encodeURIComponent(styledHtml))), directory: 'DOCUMENTS', recursive: true });
+          await Share.share({ title: _pdfFilename, url: saved.uri, dialogTitle: 'مشاركة التقرير' });
+          return;
+        }
+        // Ultimate fallback: print dialog
+        toast('⚠️ جاري فتح الطباعة — يمكنك حفظ كـ PDF', 'error');
+        window.print();
       } catch(e) {
         console.warn('[Image Share]', e);
         toast('⚠️ فشل المشاركة كصورة', 'error');

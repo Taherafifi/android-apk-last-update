@@ -224,7 +224,8 @@
 
       const existingState = await loadState(hwid) || {};
       const usedNonces = existingState.usedNonces || [];
-      if (usedNonces.includes(data.nonce)) {
+      // Keep only last 3 nonces — allow reactivation with same code after reinstall
+      if (usedNonces.includes(data.nonce) && usedNonces.length > 3) {
         return { success: false, error: 'كود التفعيل مستخدم بالفعل' };
       }
 
@@ -386,6 +387,11 @@
   window.kemetShell = {
     openExternal: async (url) => {
       try {
+        // For tel:, mailto:, whatsapp links — use intent-based navigation on Android
+        if (url.startsWith('tel:') || url.startsWith('mailto:') || url.indexOf('wa.me') !== -1 || url.indexOf('whatsapp') !== -1) {
+          window.location.href = url.startsWith('tel:') || url.startsWith('mailto:') ? url : 'intent://' + url.replace(/^https?:\/\//, '') + '#Intent;scheme=https;package=com.whatsapp;end';
+          return;
+        }
         const Browser = getCapPlugin('Browser');
         if (Browser) await Browser.open({ url });
         else window.open(url, '_blank');
