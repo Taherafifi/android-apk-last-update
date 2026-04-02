@@ -4416,7 +4416,10 @@ function closeQR(){
           <option value="">-- اختر مورداً --</option>
         </select>
       </div>
-      <div class="form-group"><label>تاريخ الأمر</label><input type="date" id="poDate" class="search-input" style="width:100%"></div>
+      <div style="display:flex;gap:8px">
+        <div class="form-group" style="flex:1"><label>رقم الفاتورة (يدوي)</label><input type="text" id="poManualNumber" placeholder="مثال: 12345" class="search-input" style="width:100%" dir="ltr"></div>
+        <div class="form-group" style="flex:1"><label>تاريخ الأمر</label><input type="date" id="poDate" class="search-input" style="width:100%"></div>
+      </div>
       <div class="form-group"><label>طريقة الدفع</label>
         <div id="poPayMethodCards" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
           <!-- كاش درج -->
@@ -5729,15 +5732,14 @@ function closeQR(){
         <!-- اختيار الملف + الحدث -->
         <div style="display:flex;flex-direction:column;gap:8px">
           <!-- اختيار الملف الصوتي -->
-          <label style="display:flex;align-items:center;gap:10px;background:var(--surface3);border:1.5px dashed var(--border);border-radius:10px;padding:10px 14px;cursor:pointer;transition:border-color .2s"
-            onmouseover="this.style.borderColor='var(--accent2)'" onmouseout="this.style.borderColor='var(--border)'">
+          <div onclick="document.getElementById('customSoundFile').click()" style="display:flex;align-items:center;gap:10px;background:var(--surface3);border:1.5px dashed var(--border);border-radius:10px;padding:10px 14px;cursor:pointer;transition:border-color .2s">
             <span style="font-size:22px">🎵</span>
             <div style="flex:1;min-width:0">
               <div style="font-size:12px;font-weight:700">اختر ملف صوتي</div>
               <div id="customSoundFileName" style="font-size:10px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">MP3 أو WAV — بحد أقصى 15MB</div>
             </div>
-            <input type="file" id="customSoundFile" accept="audio/mp3,audio/mpeg,audio/wav,audio/ogg,audio/*" style="display:none" onchange="onCustomSoundFileSelected(this)">
-          </label>
+          </div>
+          <input type="file" id="customSoundFile" accept="audio/*" style="position:absolute;opacity:0;width:1px;height:1px;overflow:hidden" onchange="onCustomSoundFileSelected(this)">
 
           <!-- اختيار الحدث -->
           <div style="display:flex;gap:6px;flex-wrap:wrap" id="soundEventTargetBtns">
@@ -7346,6 +7348,16 @@ function onPrmCustomersChange(){
   }
 }
 
+// ── ترقيم فواتير البيع تصاعديًا بدءًا من 1 ──
+function getNextInvoiceNumber(){
+  let maxNum = 0;
+  for(const s of allSales){
+    const num = parseInt((s.invNumber||'').replace(/\D/g,''), 10);
+    if(num > maxNum) maxNum = num;
+  }
+  return String(maxNum + 1);
+}
+
 
 // ═══════ js/06_pos.js ═══════
 
@@ -8001,7 +8013,7 @@ async function completeSale(){
     return;
   }
   
-  const invNum = 'INV-' + Date.now();
+  const invNum = getNextInvoiceNumber();
   const networkSenderPhone = payMethod === 'card' ? (document.getElementById('networkSenderPhone')?.value.trim()||'') : '';
   const networkRefNumber = payMethod === 'card' ? (document.getElementById('networkRefNumber')?.value.trim()||'') : '';
   
@@ -8149,7 +8161,7 @@ async function completePartialNetworkSale(){
   if(!customerId){ toast('⚠️ يجب اختيار العميل للدفع الجزئي','error'); return; }
   
   const customer = allCustomers.find(c => String(c.id) === customerId);
-  const invNum = 'INV-' + Date.now();
+  const invNum = getNextInvoiceNumber();
   const networkRefNumber = document.getElementById('networkRefNumber')?.value.trim()||'';
   
   const sale = {
@@ -8249,7 +8261,7 @@ async function completePartialSale(){
   if(!customerId){ toast('⚠️ يجب اختيار العميل للدفع الجزئي','error'); return; }
   
   const customer = allCustomers.find(c => String(c.id) === customerId);
-  const invNum = 'INV-' + Date.now();
+  const invNum = getNextInvoiceNumber();
   
   const sale = {
     invNumber: invNum, date: new Date().toISOString(),
@@ -10536,6 +10548,8 @@ function openPurchaseForm(){
   filterPoProducts();
   document.getElementById('poDate').value = new Date().toISOString().split('T')[0];
   document.getElementById('poCost').value = '';
+  const poManualNum = document.getElementById('poManualNumber');
+  if(poManualNum) poManualNum.value = '';
   
   // تحديث أرصدة الخزنات وعرضها
   updatePoPaymentBalances();
@@ -10887,8 +10901,9 @@ async function savePurchase(){
   }
   
   const poAttachment = document.getElementById('poAttachmentData')?.value || '';
+  const manualPoNum = document.getElementById('poManualNumber')?.value.trim() || '';
   const po = {
-    number: 'PO-' + Date.now(),
+    number: manualPoNum || ('PO-' + Date.now()),
     supplierId, date, items: JSON.parse(JSON.stringify(poItemsList)),
     total, createdBy: currentUser.id, paymentMethod: purchasePayMethod,
     status: 'pending', // pending = معلق, completed = مكتمل
