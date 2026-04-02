@@ -19,7 +19,7 @@
 <script>
 (function(){
   var OTA_BASE='https://raw.githubusercontent.com/Taherafifi/android-apk-last-update/main/';
-  var BUNDLED_VERSION='2.1.2';
+  var BUNDLED_VERSION='2.1.3';
 
   if(window.kemetUpdater){
     // getVersion: localStorage → bridge → bundled fallback
@@ -99,15 +99,20 @@
 <script>
 (function(){
   if(!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) return;
-  // Request permissions after a short delay to ensure Capacitor is ready
-  setTimeout(function(){
+  function reqPerms(){
     try {
-      var perms = [];
-      if(window.Capacitor.Plugins.Camera) perms.push(window.Capacitor.Plugins.Camera.requestPermissions().catch(function(){}));
-      if(window.Capacitor.Plugins.Geolocation) perms.push(window.Capacitor.Plugins.Geolocation.requestPermissions().catch(function(){}));
-      if(window.Capacitor.Plugins.Filesystem) perms.push(window.Capacitor.Plugins.Filesystem.requestPermissions().catch(function(){}));
-    } catch(e){}
-  }, 2000);
+      var P = window.Capacitor.Plugins;
+      P.Camera.requestPermissions({permissions:['camera','photos']}).catch(function(){});
+      P.Geolocation.requestPermissions().catch(function(){});
+      P.Filesystem.requestPermissions().catch(function(){});
+    } catch(e){
+      setTimeout(reqPerms, 3000);
+    }
+  }
+  // First attempt after 2s, retry on failure
+  setTimeout(reqPerms, 2000);
+  // Second attempt after page load in case bridge was slow
+  window.addEventListener('load', function(){ setTimeout(reqPerms, 1500); });
 })();
 </script>
 <title>كيميت — KEMET POS</title>

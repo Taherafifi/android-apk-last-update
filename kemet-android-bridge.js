@@ -224,8 +224,7 @@
 
       const existingState = await loadState(hwid) || {};
       const usedNonces = existingState.usedNonces || [];
-      // Keep only last 3 nonces — allow reactivation with same code after reinstall
-      if (usedNonces.includes(data.nonce) && usedNonces.length > 3) {
+      if (usedNonces.includes(data.nonce)) {
         return { success: false, error: 'كود التفعيل مستخدم بالفعل' };
       }
 
