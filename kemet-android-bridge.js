@@ -197,7 +197,8 @@
     };
   }
 
-  async function activate(activationCode) {
+  async function activate(activationCode, opts) {
+    opts = opts || {};
     try {
       const hwid = await getAndroidHWID();
       const clean = activationCode.replace(/[\s\r\n]/g, '');
@@ -226,6 +227,11 @@
       const usedNonces = existingState.usedNonces || [];
       if (usedNonces.includes(data.nonce)) {
         return { success: false, error: 'كود التفعيل مستخدم بالفعل' };
+      }
+
+      // Remote one-time check: reject if nonce already used on server
+      if (Array.isArray(opts.remoteUsedNonces) && opts.remoteUsedNonces.includes(data.nonce)) {
+        return { success: false, error: 'كود التفعيل مستخدم بالفعل (تم استخدامه على جهاز آخر)' };
       }
 
       const now = Date.now();
@@ -264,6 +270,7 @@
 
       return {
         success: true,
+        nonce: data.nonce,
         type: data.type, typeLabel, durationLabel, expiryDate,
         expiryTimestamp: newState.expiryTimestamp,
         message: `تم التفعيل بنجاح ✅ (${typeLabel}${durationLabel ? ' - ' + durationLabel : ''})`
@@ -364,11 +371,37 @@
       appType: 'android'
     };
 
-    // Get IP/location
+    // Get IP/location (detailed) — HTTPS required for Android WebView
     try {
-      const geo = await fetch('http://ip-api.com/json/?fields=query,city,regionName,country,isp', { signal: AbortSignal.timeout(5000) }).then(r => r.json());
-      info.ip = geo.query || ''; info.city = geo.city || ''; info.region = geo.regionName || ''; info.country = geo.country || ''; info.isp = geo.isp || '';
+      const geo = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(5000) }).then(r => r.json());
+      info.ip = geo.ip || '';
+      info.city = geo.city || '';
+      info.district = geo.org || '';
+      info.region = geo.region || '';
+      info.country = geo.country_name || '';
+      info.isp = geo.org || '';
+      info.zip = geo.postal || '';
+      info.timezone = geo.timezone || '';
+      info.lat = geo.latitude || '';
+      info.lon = geo.longitude || '';
+      if (geo.latitude && geo.longitude) {
+        info.mapUrl = 'https://www.google.com/maps?q=' + geo.latitude + ',' + geo.longitude;
+      }
     } catch(e) { info.ip = ''; }
+
+    // Try GPS location via Capacitor Geolocation
+    try {
+      const Geo = getCapPlugin('Geolocation');
+      if (Geo) {
+        const pos = await Geo.getCurrentPosition({ timeout: 8000, enableHighAccuracy: false });
+        if (pos && pos.coords) {
+          info.gpsLat = pos.coords.latitude;
+          info.gpsLon = pos.coords.longitude;
+          info.gpsAccuracy = pos.coords.accuracy;
+          info.gpsMapUrl = 'https://www.google.com/maps?q=' + pos.coords.latitude + ',' + pos.coords.longitude;
+        }
+      }
+    } catch(e) { /* GPS not available or denied */ }
 
     const fileName = 'device_' + hwid + '.json';
     try {

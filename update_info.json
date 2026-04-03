@@ -1,5 +1,5 @@
 {
-  "version": "2.3.2",
+  "version": "2.3.3",
   "date": "2026-04-03",
-  "changelog": "• إرجاع كل أزرار التوب بار - إصلاح overflow وإزالة display:none"
+  "changelog": "• إصلاح مشاركة التقارير PDF — استخدام Capacitor Share + Filesystem للمشاركة الأصلية"
 }
