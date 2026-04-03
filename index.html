@@ -19,7 +19,7 @@
 <script>
 (function(){
   var OTA_BASE='https://raw.githubusercontent.com/Taherafifi/android-apk-last-update/main/';
-  var BUNDLED_VERSION='2.2.8';
+  var BUNDLED_VERSION='2.2.9';
 
   if(window.kemetUpdater){
     // getVersion: localStorage → bridge → bundled fallback
@@ -1467,20 +1467,27 @@ body.kiosk .main-content > *{padding-right:calc(180px + 20px)!important}
 
   /* ── Topbar: show hamburger, adjust height ── */
   .topbar{
-    height:auto;min-height:44px;padding:6px 8px;gap:4px;
+    height:44px;padding:0 6px;gap:2px;
     position:sticky;top:0;z-index:700;
-    flex-wrap:wrap;justify-content:flex-end;
+    flex-wrap:nowrap;
+    overflow-x:auto;overflow-y:hidden;
+    scrollbar-width:none;
   }
+  .topbar::-webkit-scrollbar{display:none}
   .topbar-brand{
     display:flex!important;
-    font-size:13px;font-weight:900;color:var(--accent);
-    align-items:center;gap:4px;
-    white-space:nowrap;
+    font-size:11px;font-weight:900;color:var(--accent);
+    align-items:center;gap:2px;
+    white-space:nowrap;flex-shrink:0;
   }
   .topbar button,.topbar span{flex-shrink:0}
-  .topbar .btn-sm{padding:3px 6px!important;font-size:12px!important}
-  .topbar .user-badge{font-size:10px;padding:2px 6px}
-  .topbar button[onclick*="doLogout"]{font-size:10px!important;padding:3px 6px!important}
+  .topbar .btn-sm{padding:2px 4px!important;font-size:11px!important}
+  .topbar .user-badge{font-size:9px;padding:1px 4px;white-space:nowrap}
+  .topbar button[onclick*="doLogout"]{font-size:9px!important;padding:2px 5px!important}
+  .topbar .notif-btn{font-size:13px!important;padding:2px 4px!important}
+  .topbar button[onclick*="openThemeModal"]{font-size:13px!important;padding:2px 4px!important}
+  .topbar button[onclick*="openSoundModal"]{font-size:13px!important;padding:2px 4px!important}
+  .topbar #appUpdateBtn{font-size:13px!important;padding:2px 4px!important}
   #mobileMenuBtn{
     display:flex!important;
     width:36px;height:36px;border-radius:8px;
@@ -1620,7 +1627,15 @@ body.kiosk .main-content > *{padding-right:calc(180px + 20px)!important}
   .product-price{font-size:12px}
   .stats-grid{grid-template-columns:1fr 1fr;gap:8px}
   .stat-value{font-size:18px}
-  .topbar{height:auto;min-height:40px;padding:4px 6px;gap:3px}
+  .topbar{height:40px;padding:0 4px;gap:1px}
+  .topbar-brand{font-size:10px!important}
+  .topbar .btn-sm{padding:1px 3px!important;font-size:10px!important}
+  .topbar .notif-btn{font-size:12px!important;padding:1px 3px!important}
+  .topbar button[onclick*="openThemeModal"]{font-size:12px!important;padding:1px 3px!important}
+  .topbar button[onclick*="openSoundModal"]{font-size:12px!important;padding:1px 3px!important}
+  .topbar #appUpdateBtn{font-size:12px!important;padding:1px 3px!important}
+  .topbar button[onclick*="Kiosk"]{display:none!important}
+  #autoBackupStatus{display:none!important}
   .section{padding:10px!important}
   .data-table th,.data-table td{padding:7px 8px;font-size:10px}
   .pay-methods-row{grid-template-columns:1fr 1fr}
@@ -1711,12 +1726,11 @@ body.kiosk .main-content > *{padding-right:calc(180px + 20px)!important}
   }
   #empStatementPanel > div{width:100%!important}
 
-  /* ── Topbar: hide clock + backup status on very small ── */
+  /* ── Topbar: hide clock on very small ── */
   #clockDisplay{display:none!important}
-  #autoBackupStatus{display:none!important}
 
   /* ── Topbar overflow: compact buttons ── */
-  .topbar .btn-sm{padding:3px 5px!important;font-size:10px!important;flex-shrink:0}
+  .topbar .btn-sm{padding:2px 4px!important;font-size:10px!important;flex-shrink:0}
   .topbar button{flex-shrink:0}
   .topbar span{flex-shrink:0}
   .topbar button[onclick*="Kiosk"]{display:none}
