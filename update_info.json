@@ -1,5 +1,5 @@
 {
-  "version": "2.2.2",
-  "date": "2026-04-02",
-  "changelog": "• إصلاح زرار التحديث OTA - استخدام BridgeWebViewClient بدل WebViewClient عشان Capacitor يشتغل صح"
+  "version": "2.2.3",
+  "date": "2026-04-03",
+  "changelog": "• إصلاح رفع الصور في أوامر المشتريات وشعار الفاتورة - إزالة WebChromeClient المخصص واستخدام Capacitor الأصلي"
 }
