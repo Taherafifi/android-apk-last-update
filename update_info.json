@@ -1,5 +1,5 @@
 {
-  "version": "2.3.3",
-  "date": "2026-04-03",
-  "changelog": "• إصلاح مشاركة التقارير PDF — استخدام Capacitor Share + Filesystem للمشاركة الأصلية"
+  "version": "2.3.4",
+  "date": "2026-04-04",
+  "changelog": "• إصلاح نهائي لمشاركة التقارير PDF على أندرويد — مشاركة أصلية عبر Capacitor Share/Filesystem مع رسائل توضيحية"
 }

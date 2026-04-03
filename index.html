@@ -17,9 +17,10 @@
 <script src="kemet-android-bridge.js"></script>
 <!-- OTA v4: Override kemetUpdater — DOM replacement approach (preserves Capacitor bridge) -->
 <script>
+
 (function(){
   var OTA_BASE='https://raw.githubusercontent.com/Taherafifi/android-apk-last-update/main/';
-  var BUNDLED_VERSION='2.3.3';
+  var BUNDLED_VERSION='2.3.4';
 
   if(window.kemetUpdater){
     // getVersion: localStorage → bridge → bundled fallback
