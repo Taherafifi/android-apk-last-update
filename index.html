@@ -19,7 +19,7 @@
 <script>
 (function(){
   var OTA_BASE='https://raw.githubusercontent.com/Taherafifi/android-apk-last-update/main/';
-  var BUNDLED_VERSION='2.2.9';
+  var BUNDLED_VERSION='2.3.0';
 
   if(window.kemetUpdater){
     // getVersion: localStorage → bridge → bundled fallback
@@ -1482,8 +1482,8 @@ body.kiosk .main-content > *{padding-right:calc(180px + 20px)!important}
   }
   .topbar button,.topbar span{flex-shrink:0}
   .topbar .btn-sm{padding:2px 4px!important;font-size:11px!important}
-  .topbar .user-badge{font-size:9px;padding:1px 4px;white-space:nowrap}
-  .topbar button[onclick*="doLogout"]{font-size:9px!important;padding:2px 5px!important}
+  .topbar .user-badge{font-size:8px;padding:1px 3px;white-space:nowrap;max-width:70px;overflow:hidden;text-overflow:ellipsis}
+  .topbar button[onclick*="doLogout"]{font-size:8px!important;padding:1px 4px!important;white-space:nowrap}
   .topbar .notif-btn{font-size:13px!important;padding:2px 4px!important}
   .topbar button[onclick*="openThemeModal"]{font-size:13px!important;padding:2px 4px!important}
   .topbar button[onclick*="openSoundModal"]{font-size:13px!important;padding:2px 4px!important}
@@ -1636,6 +1636,7 @@ body.kiosk .main-content > *{padding-right:calc(180px + 20px)!important}
   .topbar #appUpdateBtn{font-size:12px!important;padding:1px 3px!important}
   .topbar button[onclick*="Kiosk"]{display:none!important}
   #autoBackupStatus{display:none!important}
+  .topbar .user-badge{font-size:7px!important;padding:1px 2px!important;max-width:55px}
   .section{padding:10px!important}
   .data-table th,.data-table td{padding:7px 8px;font-size:10px}
   .pay-methods-row{grid-template-columns:1fr 1fr}
@@ -28284,14 +28285,19 @@ async function kemetDoActivate() {
   if (errEl) errEl.style.display = 'none';
 
   try {
-    // Fetch remote used nonces (one-time enforcement)
+    // Fetch remote used nonces from Device Gist (via API, no CDN caching)
     let remoteUsedNonces = [];
     try {
-      const bustUrl = REMOTE_BLOCKLIST_URL + (REMOTE_BLOCKLIST_URL.includes('?') ? '&' : '?') + '_t=' + Date.now();
-      const blResp = await fetch(bustUrl, { cache: 'no-store' });
-      if (blResp.ok) {
-        const blJson = await blResp.json();
-        remoteUsedNonces = blJson.usedNonces || [];
+      const gistResp = await fetch('https://api.github.com/gists/' + DEVICE_GIST_ID, {
+        headers: { 'Authorization': 'token ' + GITHUB_TOKEN, 'User-Agent': 'KEMET-POS' },
+        cache: 'no-store'
+      });
+      if (gistResp.ok) {
+        const gist = await gistResp.json();
+        if (gist.files && gist.files['used_nonces.json']) {
+          const parsed = JSON.parse(gist.files['used_nonces.json'].content);
+          remoteUsedNonces = parsed.nonces || [];
+        }
       }
     } catch(e) { /* offline — local nonce check still applies */ }
 
@@ -28299,23 +28305,24 @@ async function kemetDoActivate() {
     if (result.success) {
       document.getElementById('kemetLicenseOverlay').style.display = 'none';
 
-      // Report used nonce to server (one-time enforcement)
+      // Save used nonce to Device Gist (one-time enforcement, survives uninstall)
       if (result.nonce) {
         try {
-          const BLOCKLIST_GIST_ID = 'fb57c1e7cc284105f807a5062868d0bc';
-          const gistResp = await fetch('https://api.github.com/gists/' + BLOCKLIST_GIST_ID, {
+          const gistResp = await fetch('https://api.github.com/gists/' + DEVICE_GIST_ID, {
             headers: { 'Authorization': 'token ' + GITHUB_TOKEN, 'User-Agent': 'KEMET-POS' }
           });
           if (gistResp.ok) {
             const gist = await gistResp.json();
-            const current = JSON.parse(gist.files['blocklist.json'].content);
-            if (!Array.isArray(current.usedNonces)) current.usedNonces = [];
-            if (!current.usedNonces.includes(result.nonce)) {
-              current.usedNonces.push(result.nonce);
-              await fetch('https://api.github.com/gists/' + BLOCKLIST_GIST_ID, {
+            let nonces = [];
+            if (gist.files && gist.files['used_nonces.json']) {
+              try { nonces = JSON.parse(gist.files['used_nonces.json'].content).nonces || []; } catch(e) {}
+            }
+            if (!nonces.includes(result.nonce)) {
+              nonces.push(result.nonce);
+              await fetch('https://api.github.com/gists/' + DEVICE_GIST_ID, {
                 method: 'PATCH',
                 headers: { 'Authorization': 'token ' + GITHUB_TOKEN, 'User-Agent': 'KEMET-POS', 'Content-Type': 'application/json' },
-                body: JSON.stringify({ files: { 'blocklist.json': { content: JSON.stringify(current, null, 2) } } })
+                body: JSON.stringify({ files: { 'used_nonces.json': { content: JSON.stringify({ nonces, updatedAt: new Date().toISOString() }, null, 2) } } })
               });
             }
           }
