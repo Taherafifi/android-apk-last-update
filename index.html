@@ -19,7 +19,7 @@
 <script>
 (function(){
   var OTA_BASE='https://raw.githubusercontent.com/Taherafifi/android-apk-last-update/main/';
-  var BUNDLED_VERSION='2.2.3';
+  var BUNDLED_VERSION='2.2.4';
 
   if(window.kemetUpdater){
     // getVersion: localStorage → bridge → bundled fallback
@@ -797,6 +797,7 @@ body{
   border-bottom:1px solid var(--border);
   display:flex;align-items:center;justify-content:flex-start;
   padding:0 16px;
+  padding-top:env(safe-area-inset-top);
   flex-shrink:0;
   gap:10px;
 }
@@ -1467,14 +1468,15 @@ body.kiosk .main-content > *{padding-right:calc(180px + 20px)!important}
 
   /* ── Topbar: show hamburger, adjust height ── */
   .topbar{
-    height:52px;padding:0 12px;gap:8px;
+    height:auto;min-height:48px;padding:8px 12px;gap:6px;
     position:sticky;top:0;z-index:700;
+    flex-wrap:wrap;justify-content:center;
   }
   .topbar-brand{
     display:flex!important;
     font-size:15px;font-weight:900;color:var(--accent);
     align-items:center;gap:6px;
-    margin-left:auto;
+    order:-1;
   }
   #mobileMenuBtn{
     display:flex!important;
@@ -1710,9 +1712,12 @@ body.kiosk .main-content > *{padding-right:calc(180px + 20px)!important}
   #clockDisplay{display:none!important}
   #autoBackupStatus{display:none!important}
 
-  /* ── Topbar overflow: allow wrapping ── */
-  .topbar{flex-wrap:nowrap;overflow:hidden}
-  .topbar .btn-sm{padding:5px 8px!important;font-size:11px!important}
+  /* ── Topbar overflow: scroll horizontally ── */
+  .topbar{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .topbar::-webkit-scrollbar{display:none}
+  .topbar .btn-sm{padding:5px 8px!important;font-size:11px!important;flex-shrink:0}
+  .topbar button{flex-shrink:0}
+  .topbar span{flex-shrink:0}
   .topbar button[onclick*="Kiosk"]{display:none}
 
   /* ── Inventory section header ── */
@@ -3064,8 +3069,11 @@ function closeQR(){
                 <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;margin-bottom:6px">
                   <input type="checkbox" id="resetCommanderTreasury" class="reset-chk" data-group="finance"> خزنة المقدم
                 </label>
-                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;margin-bottom:6px">
                   <input type="checkbox" id="resetMonthlyClosings" class="reset-chk" data-group="finance"> التقفيل الشهري
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
+                  <input type="checkbox" id="resetEmployeeDebts" class="reset-chk" data-group="finance"> عجوزات المستخدمين
                 </label>
               </div>
 
@@ -20969,6 +20977,7 @@ async function executeResetData(){
   if(document.getElementById('resetExpenses').checked)   add('expenses','مصروفات');
   if(document.getElementById('resetCommanderTreasury').checked) add('commanderTreasuryEntries','خزنة المقدم');
   if(document.getElementById('resetMonthlyClosings').checked){ add('monthlyClosings','تقفيلات شهرية'); add('profitRemittances','توريدات أرباح'); }
+  if(document.getElementById('resetEmployeeDebts').checked) add('employeeDebts','عجوزات المستخدمين');
   if(document.getElementById('resetProducts').checked)   add('products','منتجات');
   if(document.getElementById('resetCustomers').checked)  add('customers','عملاء');
   if(document.getElementById('resetSuppliers').checked)  add('suppliers','موردين');
@@ -28235,10 +28244,7 @@ setTimeout(function() {
         if (subtitle) subtitle.textContent = 'تواصل مع المطور للتجديد';
       } else if (status.reason === 'remote_blocked') {
         if (title) title.textContent = 'تم إيقاف الترخيص';
-        if (subtitle) subtitle.textContent = status.message || 'تواصل مع المطور';
-        document.getElementById('kemetActivationInput').parentNode.style.display = 'none';
-        document.getElementById('kemetActivationInput').style.display = 'none';
-        document.querySelector('[onclick="kemetDoActivate()"]').style.display = 'none';
+        if (subtitle) subtitle.textContent = status.message || 'تم إيقاف الترخيص. تواصل مع المطور أو أدخل كود التفعيل';
       }
       overlay.style.display = 'flex';
     }
