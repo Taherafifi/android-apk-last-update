@@ -2,6 +2,50 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
+<!-- ====== Keyboard Avoidance (move input above keyboard) ====== -->
+<script>
+// يعمل على أندرويد فقط — يحرك أي input/textarea/select فوق الكيبورد
+(function(){
+  if (!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) return;
+  function scrollIntoViewIfNeeded(el, keyboardHeight) {
+    if (!el) return;
+    setTimeout(function() {
+      const rect = el.getBoundingClientRect();
+      const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      const kbH = keyboardHeight || 260;
+      // إذا كان الحقل تحت الكيبورد
+      if (rect.bottom > vh - kbH) {
+        window.scrollBy({
+          top: rect.bottom - (vh - kbH) + 24,
+          behavior: 'smooth'
+        });
+      }
+    }, 120);
+  }
+  // دعم Capacitor Keyboard plugin إذا متاح
+  var keyboardHeight = 260;
+  if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Keyboard) {
+    window.Capacitor.Plugins.Keyboard.addListener('keyboardWillShow', function(info){
+      keyboardHeight = info.keyboardHeight || 260;
+    });
+    window.Capacitor.Plugins.Keyboard.addListener('keyboardDidShow', function(info){
+      keyboardHeight = info.keyboardHeight || 260;
+    });
+    window.Capacitor.Plugins.Keyboard.addListener('keyboardDidHide', function(){
+      keyboardHeight = 0;
+      window.scrollTo({top:0,behavior:'smooth'});
+    });
+  }
+  // عند الفوكس على أي input/textarea/select
+  document.addEventListener('focusin', function(e){
+    var t = e.target;
+    if (!t) return;
+    if (['INPUT','TEXTAREA','SELECT'].includes(t.tagName)) {
+      scrollIntoViewIfNeeded(t, keyboardHeight);
+    }
+  });
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <!-- Capacitor Runtime -->
 <script src="capacitor.js"></script>
@@ -20,7 +64,7 @@
 
 (function(){
   var OTA_BASE='https://raw.githubusercontent.com/Taherafifi/android-apk-last-update/main/';
-  var BUNDLED_VERSION='2.3.4';
+  var BUNDLED_VERSION='2.3.5';
 
   if(window.kemetUpdater){
     // getVersion: localStorage → bridge → bundled fallback
