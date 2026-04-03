@@ -19,7 +19,7 @@
 <script>
 (function(){
   var OTA_BASE='https://raw.githubusercontent.com/Taherafifi/android-apk-last-update/main/';
-  var BUNDLED_VERSION='2.2.5';
+  var BUNDLED_VERSION='2.2.6';
 
   if(window.kemetUpdater){
     // getVersion: localStorage → bridge → bundled fallback
@@ -1469,7 +1469,9 @@ body.kiosk .main-content > *{padding-right:calc(180px + 20px)!important}
   .topbar{
     height:48px;padding:0 10px;gap:6px;
     position:sticky;top:0;z-index:700;
+    overflow-x:auto;overflow-y:hidden;scrollbar-width:none;
   }
+  .topbar::-webkit-scrollbar{display:none}
   .topbar-brand{
     display:flex!important;
     font-size:14px;font-weight:900;color:var(--accent);
@@ -1477,10 +1479,7 @@ body.kiosk .main-content > *{padding-right:calc(180px + 20px)!important}
     margin-left:auto;
     white-space:nowrap;
   }
-  /* Hide non-essential topbar buttons on mobile */
-  .topbar #soundToggleBtn{display:none!important}
-  .topbar button[onclick*="openThemeModal"]{display:none!important}
-  .topbar .user-badge{display:none!important}
+  .topbar button,.topbar span{flex-shrink:0}
   #mobileMenuBtn{
     display:flex!important;
     width:36px;height:36px;border-radius:8px;
