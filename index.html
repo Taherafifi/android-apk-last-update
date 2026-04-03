@@ -19,7 +19,7 @@
 <script>
 (function(){
   var OTA_BASE='https://raw.githubusercontent.com/Taherafifi/android-apk-last-update/main/';
-  var BUNDLED_VERSION='2.2.6';
+  var BUNDLED_VERSION='2.2.7';
 
   if(window.kemetUpdater){
     // getVersion: localStorage → bridge → bundled fallback
@@ -1715,8 +1715,9 @@ body.kiosk .main-content > *{padding-right:calc(180px + 20px)!important}
   #clockDisplay{display:none!important}
   #autoBackupStatus{display:none!important}
 
-  /* ── Topbar overflow: ensure single row fits ── */
-  .topbar{overflow:hidden}
+  /* ── Topbar overflow: allow horizontal scroll ── */
+  .topbar{overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
+  .topbar::-webkit-scrollbar{display:none}
   .topbar .btn-sm{padding:4px 6px!important;font-size:11px!important;flex-shrink:0}
   .topbar button{flex-shrink:0}
   .topbar span{flex-shrink:0}
@@ -1810,8 +1811,7 @@ body.kiosk .main-content > *{padding-right:calc(180px + 20px)!important}
 }
 
 @media(max-width:480px){
-  /* Extra small: hide some topbar items */
-  .topbar .user-badge{display:none}
+  /* Extra small: compact topbar */
   #notifBtn{width:30px;height:30px;font-size:13px}
   #reportStats{grid-template-columns:1fr 1fr!important}
 }
