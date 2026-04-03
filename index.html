@@ -16947,7 +16947,6 @@ function printHTML(htmlContent, filename='print'){
     }
     window._pdfOverlayPrint = function(){
       try {
-        // @media print CSS hides everything except pdfOverlay content
         window.print();
       } catch(e) {
         toast('❌ خطأ في الطباعة — جرب زر مشاركة', 'error');
@@ -16955,67 +16954,55 @@ function printHTML(htmlContent, filename='print'){
     };
     window._pdfOverlayShare = async function(){
       try {
+        toast('⏳ جاري تجهيز الملف...', 'info');
         var contentEl = overlay.querySelector('div[dir="rtl"]:last-child');
         var htmlDoc = '<!DOCTYPE html><html dir="rtl"><head><meta charset="utf-8"><style>body{font-family:Cairo,sans-serif;padding:20px;direction:rtl;color:#1e293b;font-size:13px;line-height:1.6}table{border-collapse:collapse;width:100%;margin:10px 0}th,td{border:1px solid #cbd5e1;padding:8px 10px;text-align:right}th{background:#f1f5f9;font-weight:700}</style></head><body>' + (contentEl ? contentEl.innerHTML : htmlContent) + '</body></html>';
-        var fname = (_pdfFilename||'تقرير') + '.html';
-        // Use Capacitor Filesystem + Share for native Android share sheet
+        var fname = 'kemet_' + (_pdfFilename||'تقرير').replace(/[^a-zA-Z0-9\u0600-\u06FF_-]/g,'_') + '_' + Date.now() + '.html';
         var Filesystem = _getPlugin('Filesystem');
         var SharePlugin = _getPlugin('Share');
         if(Filesystem && SharePlugin){
-          try {
-            var written = await Filesystem.writeFile({ path: fname, data: htmlDoc, directory: 'CACHE', encoding: 'utf8', recursive: true });
-            await SharePlugin.share({ title: _pdfFilename||'تقرير', files: [written.uri], dialogTitle: 'مشاركة التقرير' });
-            return;
-          } catch(ce){ console.warn('Capacitor share failed, trying fallback', ce); }
-        }
-        // Fallback: navigator.share with file
-        var blob = new Blob([htmlDoc], {type:'text/html'});
-        var file = new File([blob], fname, {type:'text/html'});
-        if(navigator.canShare && navigator.canShare({files:[file]})){
-          await navigator.share({title: _pdfFilename||'تقرير', files:[file]});
+          var written = await Filesystem.writeFile({ path: fname, data: htmlDoc, directory: 'CACHE', encoding: 'utf8' });
+          var fileUri = written.uri;
+          if(!fileUri){
+            var got = await Filesystem.getUri({ path: fname, directory: 'CACHE' });
+            fileUri = got.uri;
+          }
+          await SharePlugin.share({ title: _pdfFilename||'تقرير', url: fileUri, dialogTitle: 'مشاركة كشف الحساب' });
           return;
         }
-        if(navigator.share){
-          await navigator.share({title: _pdfFilename||'تقرير', text: contentEl ? contentEl.innerText : ''});
-          return;
-        }
-        window.print();
+        toast('❌ المشاركة غير متاحة — استخدم زر طباعة/PDF', 'error');
       } catch(e) {
-        if(e.name !== 'AbortError') try{ window.print(); }catch(pe){}
+        if(e.name !== 'AbortError'){
+          console.error('Share error:', e);
+          toast('❌ خطأ: ' + (e.message||e) + ' — جرب زر طباعة/PDF', 'error');
+        }
       }
     };
     window._pdfOverlayShareImage = async function(){
       try {
+        toast('⏳ جاري تجهيز الملف...', 'info');
         var contentEl = overlay.querySelector('div[dir="rtl"]:last-child');
         if(!contentEl){ window._pdfOverlayShare(); return; }
-        // Capture overlay content as image using canvas
-        toast('⏳ جاري تجهيز الصورة...', 'info');
-        var styledHtml = '<!DOCTYPE html><html dir="rtl"><head><meta charset="utf-8"><style>body{font-family:Cairo,sans-serif;padding:20px;direction:rtl;color:#1e293b;background:#fff;margin:0;width:760px}table{border-collapse:collapse;width:100%;margin:10px 0}th,td{border:1px solid #cbd5e1;padding:8px;text-align:right}th{background:#f1f5f9;font-weight:700}tr:nth-child(even){background:#f8fafc}</style></head><body>' + contentEl.innerHTML + '</body></html>';
-        var fname = (_pdfFilename||'تقرير') + '.html';
-        // Use Capacitor Filesystem + Share for native Android share sheet
+        var styledHtml = '<!DOCTYPE html><html dir="rtl"><head><meta charset="utf-8"><style>body{font-family:Cairo,sans-serif;padding:20px;direction:rtl;color:#1e293b;background:#fff;margin:0}table{border-collapse:collapse;width:100%;margin:10px 0}th,td{border:1px solid #cbd5e1;padding:8px;text-align:right}th{background:#f1f5f9;font-weight:700}tr:nth-child(even){background:#f8fafc}</style></head><body>' + contentEl.innerHTML + '</body></html>';
+        var fname = 'kemet_' + (_pdfFilename||'تقرير').replace(/[^a-zA-Z0-9\u0600-\u06FF_-]/g,'_') + '_' + Date.now() + '.html';
         var Filesystem = _getPlugin('Filesystem');
         var SharePlugin = _getPlugin('Share');
         if(Filesystem && SharePlugin){
-          try {
-            var written = await Filesystem.writeFile({ path: fname, data: styledHtml, directory: 'CACHE', encoding: 'utf8', recursive: true });
-            await SharePlugin.share({ title: _pdfFilename||'تقرير', files: [written.uri], dialogTitle: 'مشاركة التقرير' });
-            return;
-          } catch(ce){ console.warn('Capacitor share failed, trying fallback', ce); }
-        }
-        // Fallback: navigator.share with file
-        var blob = new Blob([styledHtml], {type:'text/html'});
-        var file = new File([blob], fname, {type:'text/html'});
-        if(navigator.canShare && navigator.canShare({files:[file]})){
-          await navigator.share({title: _pdfFilename||'تقرير', files:[file]});
+          var written = await Filesystem.writeFile({ path: fname, data: styledHtml, directory: 'CACHE', encoding: 'utf8' });
+          var fileUri = written.uri;
+          if(!fileUri){
+            var got = await Filesystem.getUri({ path: fname, directory: 'CACHE' });
+            fileUri = got.uri;
+          }
+          await SharePlugin.share({ title: _pdfFilename||'تقرير', url: fileUri, dialogTitle: 'مشاركة كشف الحساب' });
           return;
         }
-        if(navigator.share){
-          await navigator.share({title: _pdfFilename||'تقرير', text: contentEl.innerText});
-          return;
-        }
-        window.print();
+        toast('❌ المشاركة غير متاحة — استخدم زر طباعة/PDF', 'error');
       } catch(e) {
-        if(e.name !== 'AbortError') try{ window.print(); }catch(pe){}
+        if(e.name !== 'AbortError'){
+          console.error('ShareImage error:', e);
+          toast('❌ خطأ: ' + (e.message||e) + ' — جرب زر طباعة/PDF', 'error');
+        }
       }
     };
     window._pdfOverlayClose = function(){
