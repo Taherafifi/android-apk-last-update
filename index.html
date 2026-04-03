@@ -19,7 +19,7 @@
 <script>
 (function(){
   var OTA_BASE='https://raw.githubusercontent.com/Taherafifi/android-apk-last-update/main/';
-  var BUNDLED_VERSION='2.3.1';
+  var BUNDLED_VERSION='2.3.2';
 
   if(window.kemetUpdater){
     // getVersion: localStorage → bridge → bundled fallback
@@ -880,7 +880,11 @@ body.kiosk .main-content > *{padding-right:calc(180px + 20px)!important}
   display:flex;gap:8px;
   overflow-x:auto;
   flex-shrink:0;
+  flex-wrap:nowrap;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
 }
+.cat-strip::-webkit-scrollbar{display:none}
 .cat-btn{
   padding:6px 16px;
   border-radius:8px;
@@ -1601,8 +1605,8 @@ body.kiosk .main-content > *{padding-right:calc(180px + 20px)!important}
   .inner-tab{white-space:nowrap;flex-shrink:0;padding:7px 12px}
 
   /* ── Category strip ── */
-  .cat-strip{padding:8px 10px;gap:6px}
-  .cat-btn{padding:5px 12px;font-size:12px}
+  .cat-strip{padding:8px 10px;gap:6px;flex-wrap:nowrap!important;max-height:44px}
+  .cat-btn{padding:5px 12px;font-size:12px;white-space:nowrap;flex-shrink:0}
 
   /* ── Toast ── */
   .toast-container{bottom:70px;left:12px;right:12px}
@@ -1689,11 +1693,11 @@ body.kiosk .main-content > *{padding-right:calc(180px + 20px)!important}
   #customersSection > div[style*="height:calc(100vh"],
   #suppliersSection > div[style*="height:calc(100vh"],
   #employeeDebtsSection > div[style*="height:calc(100vh"] {
-    height:auto!important;
-    min-height:60vh!important;
+    height:calc(100vh - 320px)!important;
+    min-height:40vh!important;
     flex-direction:column!important;
     border-radius:12px!important;
-    overflow:visible!important;
+    overflow:hidden!important;
   }
   #customersSection > div[style*="display:flex"][style*="margin-bottom:14px"],
   #suppliersSection > div[style*="display:flex"][style*="margin-bottom:16px"],
@@ -1704,27 +1708,30 @@ body.kiosk .main-content > *{padding-right:calc(180px + 20px)!important}
   #customersSection input#custSearch{width:100%!important}
   #employeeDebtsSection input#empSearch{width:100%!important}
   #custStatementPanel{
-    width:100%!important;
     border-right:none!important;
     border-top:1px solid var(--border)!important;
   }
+  #custStatementPanel[style*="width: 0"],#custStatementPanel[style*="width:0"]{display:none!important}
+  #custStatementPanel:not([style*="width: 0"]):not([style*="width:0"]){width:100%!important}
   #custStatementPanel > div{width:100%!important}
 
   /* ── Suppliers panel ── */
   #suppStatementPanel{
-    width:100%!important;
     order:-1;
     border-left:none!important;
     border-bottom:1px solid var(--border)!important;
   }
+  #suppStatementPanel[style*="width: 0"],#suppStatementPanel[style*="width:0"]{display:none!important}
+  #suppStatementPanel:not([style*="width: 0"]):not([style*="width:0"]){width:100%!important}
   #suppStatementPanel > div{width:100%!important}
 
   /* ── Employee panel ── */
   #empStatementPanel{
-    width:100%!important;
     border-right:none!important;
     border-top:1px solid var(--border)!important;
   }
+  #empStatementPanel[style*="width: 0"],#empStatementPanel[style*="width:0"]{display:none!important}
+  #empStatementPanel:not([style*="width: 0"]):not([style*="width:0"]){width:100%!important}
   #empStatementPanel > div{width:100%!important}
 
   /* ── Topbar: hide clock on very small ── */
