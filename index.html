@@ -9412,14 +9412,33 @@ function openCustPanel(customerId){
   currentPanelCustomerId = customerId;
   currentStatementCustomerId = customerId;
   const panel = document.getElementById('custStatementPanel');
-  if(panel) panel.style.width = '100%';
+  const container = panel?.parentElement;
+  if(panel){
+    panel.style.width = '100%';
+    panel.style.position = 'fixed';
+    panel.style.top = '0';
+    panel.style.right = '0';
+    panel.style.bottom = '0';
+    panel.style.zIndex = '9999';
+    panel.style.height = '100vh';
+    panel.style.borderRadius = '0';
+  }
   renderCustomers();
   refreshCustPanel();
 }
 
 function closeCustPanel(){
   const panel = document.getElementById('custStatementPanel');
-  if(panel) panel.style.width = '0';
+  if(panel){
+    panel.style.width = '0';
+    panel.style.position = '';
+    panel.style.top = '';
+    panel.style.right = '';
+    panel.style.bottom = '';
+    panel.style.zIndex = '';
+    panel.style.height = '';
+    panel.style.borderRadius = '';
+  }
   currentPanelCustomerId = null;
   renderCustomers();
 }
@@ -9888,7 +9907,16 @@ function renderSuppliers(){
 function openSuppPanel(sid){
   currentSuppId = sid;
   const panel = document.getElementById('suppStatementPanel');
-  if(panel) panel.style.width = '100%';
+  if(panel){
+    panel.style.width = '100%';
+    panel.style.position = 'fixed';
+    panel.style.top = '0';
+    panel.style.left = '0';
+    panel.style.bottom = '0';
+    panel.style.zIndex = '9999';
+    panel.style.height = '100vh';
+    panel.style.borderRadius = '0';
+  }
   const s = allSuppliers.find(x=>x.id===sid);
   if(!s) return;
   const nameEl = document.getElementById('panelSuppName');
@@ -10005,7 +10033,16 @@ function openSuppPanel(sid){
 function closeSuppPanel(){
   currentSuppId = null;
   const panel = document.getElementById('suppStatementPanel');
-  if(panel) panel.style.width = '0';
+  if(panel){
+    panel.style.width = '0';
+    panel.style.position = '';
+    panel.style.top = '';
+    panel.style.left = '';
+    panel.style.bottom = '';
+    panel.style.zIndex = '';
+    panel.style.height = '';
+    panel.style.borderRadius = '';
+  }
   renderSuppliers();
 }
 
