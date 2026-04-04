@@ -2430,12 +2430,12 @@ function closeQR(){
         </div>
       </div>
       <!-- Category management -->
-      <div class="card" style="margin-bottom:12px;overflow:hidden">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div class="card" style="margin-bottom:12px;overflow:hidden;flex-shrink:0">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-shrink:0">
           <span style="font-weight:700;font-size:14px">🏷️ الفئات</span>
           <button class="btn btn-secondary btn-sm" onclick="openCategoryForm()">+ فئة جديدة</button>
         </div>
-        <div id="categoriesList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;max-height:300px;overflow-y:auto;padding-right:8px;border-radius:6px"></div>
+        <div id="categoriesList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));grid-auto-rows:max-content;gap:8px;max-height:320px;overflow-y:auto;padding-right:10px;border-radius:6px;flex-shrink:0"></div>
       </div>
       <!-- فلتر الفئات + كروت الإجماليات -->
       <div id="invCategoryFilterBar" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;align-items:center"></div>
