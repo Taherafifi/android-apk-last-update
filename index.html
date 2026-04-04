@@ -2435,7 +2435,7 @@ function closeQR(){
           <span style="font-weight:700;font-size:14px">🏷️ الفئات</span>
           <button class="btn btn-secondary btn-sm" onclick="openCategoryForm()">+ فئة جديدة</button>
         </div>
-        <div id="categoriesList" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+        <div id="categoriesList" style="display:flex;flex-wrap:wrap;gap:8px;max-height:170px;overflow-y:auto;padding-right:6px"></div>
       </div>
       <!-- فلتر الفئات + كروت الإجماليات -->
       <div id="invCategoryFilterBar" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;align-items:center"></div>
@@ -2513,7 +2513,7 @@ function closeQR(){
 
         <!-- RIGHT: Statement panel (slides in) -->
         <div id="custStatementPanel" style="width:0;overflow:hidden;transition:width .25s ease;flex-shrink:0;border-right:1px solid var(--border);background:var(--surface)">
-          <div style="width:310px;height:100%;overflow-y:auto;display:flex;flex-direction:column">
+          <div style="width:310px;height:100%;overflow-y:auto;display:flex;flex-direction:column;max-height:80vh">
 
             <!-- Panel header - purple gradient like screenshot -->
             <div style="background:linear-gradient(135deg,#7c3aed,#6d28d9);padding:14px 16px;color:#fff;flex-shrink:0">
@@ -2658,7 +2658,7 @@ function closeQR(){
 
         <!-- RIGHT panel: سجل المشتريات (shows when supplier selected) - like image 4 left side -->
         <div id="suppStatementPanel" style="width:0;overflow:hidden;transition:width .3s ease;flex-shrink:0;border-left:1px solid var(--border);background:var(--surface)">
-          <div style="width:360px;height:100%;display:flex;flex-direction:column;overflow:hidden">
+          <div style="width:360px;height:100%;display:flex;flex-direction:column;overflow-y:auto;max-height:80vh">
             <!-- Header with X -->
             <div style="padding:12px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
               <span style="font-weight:700;font-size:14px">سجل المشتريات</span>
@@ -4754,7 +4754,7 @@ function closeQR(){
 
 <!-- USER FORM MODAL -->
 <div class="modal-overlay" id="userModal">
-  <div class="modal" style="max-width:600px">
+  <div class="modal" style="max-width:600px;max-height:80vh;overflow-y:auto">
     <div class="modal-header">
       <h2 id="userModalTitle">إضافة مستخدم</h2>
       <button class="modal-close" onclick="closeModal('userModal')">×</button>
