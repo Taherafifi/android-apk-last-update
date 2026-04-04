@@ -46,6 +46,50 @@
   });
 })();
 </script>
+<!-- ====== Keyboard Avoidance (move input above keyboard) ====== -->
+<script>
+// يعمل على أندرويد فقط — يحرك أي input/textarea/select فوق الكيبورد
+(function(){
+  if (!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) return;
+  function scrollIntoViewIfNeeded(el, keyboardHeight) {
+    if (!el) return;
+    setTimeout(function() {
+      const rect = el.getBoundingClientRect();
+      const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      const kbH = keyboardHeight || 260;
+      // إذا كان الحقل تحت الكيبورد
+      if (rect.bottom > vh - kbH) {
+        window.scrollBy({
+          top: rect.bottom - (vh - kbH) + 24,
+          behavior: 'smooth'
+        });
+      }
+    }, 120);
+  }
+  // دعم Capacitor Keyboard plugin إذا متاح
+  var keyboardHeight = 260;
+  if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Keyboard) {
+    window.Capacitor.Plugins.Keyboard.addListener('keyboardWillShow', function(info){
+      keyboardHeight = info.keyboardHeight || 260;
+    });
+    window.Capacitor.Plugins.Keyboard.addListener('keyboardDidShow', function(info){
+      keyboardHeight = info.keyboardHeight || 260;
+    });
+    window.Capacitor.Plugins.Keyboard.addListener('keyboardDidHide', function(){
+      keyboardHeight = 0;
+      window.scrollTo({top:0,behavior:'smooth'});
+    });
+  }
+  // عند الفوكس على أي input/textarea/select
+  document.addEventListener('focusin', function(e){
+    var t = e.target;
+    if (!t) return;
+    if (['INPUT','TEXTAREA','SELECT'].includes(t.tagName)) {
+      scrollIntoViewIfNeeded(t, keyboardHeight);
+    }
+  });
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <!-- Capacitor Runtime -->
 <script src="capacitor.js"></script>
@@ -2039,6 +2083,52 @@ body {
 </style>
 
 </head>
+</head>
+<script>
+// ════ Keyboard Avoidance: Move focused input above keyboard ════
+document.addEventListener('DOMContentLoaded', function() {
+  function scrollInputIntoView(el) {
+    if (!el) return;
+    setTimeout(function() {
+      try {
+        el.scrollIntoView({behavior:'smooth', block:'center'});
+      } catch(e) {
+        el.scrollIntoView(true);
+      }
+    }, 120);
+  }
+  // Capacitor Keyboard plugin (if available)
+  if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Keyboard) {
+    window.Capacitor.Plugins.Keyboard.addListener('keyboardDidShow', function(info) {
+      const el = document.activeElement;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) {
+        scrollInputIntoView(el);
+      }
+    });
+  }
+  // Fallback: visualViewport (for Android WebView)
+  if (window.visualViewport) {
+    let lastHeight = window.visualViewport.height;
+    window.visualViewport.addEventListener('resize', function() {
+      const el = document.activeElement;
+      if (window.visualViewport.height < lastHeight - 80) {
+        // Keyboard likely opened
+        if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) {
+          scrollInputIntoView(el);
+        }
+      }
+      lastHeight = window.visualViewport.height;
+    });
+  }
+  // Extra: on focus, always try to scroll input into view
+  document.body.addEventListener('focus', function(e) {
+    const el = e.target;
+    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) {
+      scrollInputIntoView(el);
+    }
+  }, true);
+});
+</script>
 <body>
 
 <!-- Failsafe: nav-tab click handler via event delegation (separate script block) -->
