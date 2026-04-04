@@ -4,36 +4,57 @@
 <meta charset="UTF-8">
 <!-- ====== Keyboard Avoidance (move input above keyboard) ====== -->
 <script>
-// يعمل على أندرويد فقط — يحرك أي input/textarea/select فوق الكيبورد
+// يعمل على أندرويد فقط — يحرك أي input/textarea/select فوق الكيبورد بدقة
 (function(){
   if (!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) return;
-  function scrollIntoViewIfNeeded(el, keyboardHeight) {
+  let keyboardVisible = false;
+  let keyboardHeight = 260;
+  let lastFocused = null;
+  // إيجاد أقرب عنصر scrollable
+  function getScrollableParent(el) {
+    while (el && el !== document.body) {
+      const style = window.getComputedStyle(el);
+      if (/(auto|scroll)/.test(style.overflowY)) return el;
+      el = el.parentElement;
+    }
+    return window;
+  }
+  function scrollInputIntoView(el) {
     if (!el) return;
     setTimeout(function() {
+      // استخدم visualViewport لو متاح
       const rect = el.getBoundingClientRect();
       const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
       const kbH = keyboardHeight || 260;
       // إذا كان الحقل تحت الكيبورد
       if (rect.bottom > vh - kbH) {
-        window.scrollBy({
-          top: rect.bottom - (vh - kbH) + 24,
-          behavior: 'smooth'
-        });
+        // استخدم scrollIntoView مع أقرب scrollable
+        const parent = getScrollableParent(el);
+        if (parent === window) {
+          el.scrollIntoView({behavior:'smooth', block:'center'});
+        } else {
+          const parentRect = parent.getBoundingClientRect();
+          parent.scrollTop += (rect.bottom - (vh - kbH)) - parentRect.top + 24;
+        }
       }
     }, 120);
   }
   // دعم Capacitor Keyboard plugin إذا متاح
-  var keyboardHeight = 260;
   if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Keyboard) {
     window.Capacitor.Plugins.Keyboard.addListener('keyboardWillShow', function(info){
+      keyboardVisible = true;
       keyboardHeight = info.keyboardHeight || 260;
+      if (lastFocused) scrollInputIntoView(lastFocused);
     });
     window.Capacitor.Plugins.Keyboard.addListener('keyboardDidShow', function(info){
+      keyboardVisible = true;
       keyboardHeight = info.keyboardHeight || 260;
+      if (lastFocused) scrollInputIntoView(lastFocused);
     });
     window.Capacitor.Plugins.Keyboard.addListener('keyboardDidHide', function(){
+      keyboardVisible = false;
       keyboardHeight = 0;
-      window.scrollTo({top:0,behavior:'smooth'});
+      lastFocused = null;
     });
   }
   // عند الفوكس على أي input/textarea/select
@@ -41,7 +62,8 @@
     var t = e.target;
     if (!t) return;
     if (['INPUT','TEXTAREA','SELECT'].includes(t.tagName)) {
-      scrollIntoViewIfNeeded(t, keyboardHeight);
+      lastFocused = t;
+      if (keyboardVisible) scrollInputIntoView(t);
     }
   });
 })();
