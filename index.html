@@ -4,52 +4,42 @@
 <meta charset="UTF-8">
 <!-- ====== Keyboard Avoidance (move input above keyboard) ====== -->
 <script>
-// يعمل على أندرويد فقط — يحرك أي input/textarea/select فوق الكيبورد بدقة
+// يعمل على أندرويد فقط — يحرك أي input/textarea/select فوق الكيبورد مهما كان مكانه
 (function(){
   if (!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) return;
   let keyboardVisible = false;
   let keyboardHeight = 260;
   let lastFocused = null;
-  // إيجاد أقرب عنصر scrollable
-  function getScrollableParent(el) {
-    while (el && el !== document.body) {
-      const style = window.getComputedStyle(el);
-      if (/(auto|scroll)/.test(style.overflowY)) return el;
-      el = el.parentElement;
-    }
-    return window;
-  }
-  function scrollInputIntoView(el) {
+  let scrollTries = 0;
+  function ensureInputVisible(el) {
     if (!el) return;
-    setTimeout(function() {
-      // استخدم visualViewport لو متاح
+    scrollTries = 0;
+    function tryScroll(){
+      if (!el) return;
       const rect = el.getBoundingClientRect();
       const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
       const kbH = keyboardHeight || 260;
-      // إذا كان الحقل تحت الكيبورد
-      if (rect.bottom > vh - kbH) {
-        // استخدم scrollIntoView مع أقرب scrollable
-        const parent = getScrollableParent(el);
-        if (parent === window) {
-          el.scrollIntoView({behavior:'smooth', block:'center'});
-        } else {
-          const parentRect = parent.getBoundingClientRect();
-          parent.scrollTop += (rect.bottom - (vh - kbH)) - parentRect.top + 24;
-        }
+      if (rect.bottom > vh - kbH - 8 || rect.top > vh - 32) {
+        el.scrollIntoView({behavior:'smooth', block:'nearest', inline:'nearest'});
       }
-    }, 120);
+      // كرر المحاولة عدة مرات إذا لم يظهر العنصر
+      scrollTries++;
+      if ((rect.bottom > vh - kbH - 8 || rect.top > vh - 32) && scrollTries < 8) {
+        setTimeout(tryScroll, 120);
+      }
+    }
+    setTimeout(tryScroll, 80);
   }
-  // دعم Capacitor Keyboard plugin إذا متاح
   if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Keyboard) {
     window.Capacitor.Plugins.Keyboard.addListener('keyboardWillShow', function(info){
       keyboardVisible = true;
       keyboardHeight = info.keyboardHeight || 260;
-      if (lastFocused) scrollInputIntoView(lastFocused);
+      if (lastFocused) ensureInputVisible(lastFocused);
     });
     window.Capacitor.Plugins.Keyboard.addListener('keyboardDidShow', function(info){
       keyboardVisible = true;
       keyboardHeight = info.keyboardHeight || 260;
-      if (lastFocused) scrollInputIntoView(lastFocused);
+      if (lastFocused) ensureInputVisible(lastFocused);
     });
     window.Capacitor.Plugins.Keyboard.addListener('keyboardDidHide', function(){
       keyboardVisible = false;
@@ -57,61 +47,25 @@
       lastFocused = null;
     });
   }
-  // عند الفوكس على أي input/textarea/select
   document.addEventListener('focusin', function(e){
     var t = e.target;
     if (!t) return;
     if (['INPUT','TEXTAREA','SELECT'].includes(t.tagName)) {
       lastFocused = t;
-      if (keyboardVisible) scrollInputIntoView(t);
+      if (keyboardVisible) ensureInputVisible(t);
     }
   });
+  // دعم visualViewport: إعادة التحريك عند تغير الارتفاع
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', function(){
+      if (keyboardVisible && lastFocused) ensureInputVisible(lastFocused);
+    });
+  }
 })();
 </script>
 <!-- ====== Keyboard Avoidance (move input above keyboard) ====== -->
 <script>
-// يعمل على أندرويد فقط — يحرك أي input/textarea/select فوق الكيبورد
-(function(){
-  if (!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) return;
-  function scrollIntoViewIfNeeded(el, keyboardHeight) {
-    if (!el) return;
-    setTimeout(function() {
-      const rect = el.getBoundingClientRect();
-      const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-      const kbH = keyboardHeight || 260;
-      // إذا كان الحقل تحت الكيبورد
-      if (rect.bottom > vh - kbH) {
-        window.scrollBy({
-          top: rect.bottom - (vh - kbH) + 24,
-          behavior: 'smooth'
-        });
-      }
-    }, 120);
-  }
-  // دعم Capacitor Keyboard plugin إذا متاح
-  var keyboardHeight = 260;
-  if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Keyboard) {
-    window.Capacitor.Plugins.Keyboard.addListener('keyboardWillShow', function(info){
-      keyboardHeight = info.keyboardHeight || 260;
-    });
-    window.Capacitor.Plugins.Keyboard.addListener('keyboardDidShow', function(info){
-      keyboardHeight = info.keyboardHeight || 260;
-    });
-    window.Capacitor.Plugins.Keyboard.addListener('keyboardDidHide', function(){
-      keyboardHeight = 0;
-      window.scrollTo({top:0,behavior:'smooth'});
-    });
-  }
-  // عند الفوكس على أي input/textarea/select
-  document.addEventListener('focusin', function(e){
-    var t = e.target;
-    if (!t) return;
-    if (['INPUT','TEXTAREA','SELECT'].includes(t.tagName)) {
-      scrollIntoViewIfNeeded(t, keyboardHeight);
-    }
-  });
-})();
-</script>
+
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <!-- Capacitor Runtime -->
 <script src="capacitor.js"></script>
