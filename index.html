@@ -4754,7 +4754,7 @@ function closeQR(){
 
 <!-- USER FORM MODAL -->
 <div class="modal-overlay" id="userModal">
-  <div class="modal" style="max-width:600px;max-height:80vh;overflow-y:auto">
+  <div class="modal" style="width:100%;height:100vh;max-width:100%;max-height:100%;overflow-y:auto">
     <div class="modal-header">
       <h2 id="userModalTitle">إضافة مستخدم</h2>
       <button class="modal-close" onclick="closeModal('userModal')">×</button>
@@ -9412,7 +9412,7 @@ function openCustPanel(customerId){
   currentPanelCustomerId = customerId;
   currentStatementCustomerId = customerId;
   const panel = document.getElementById('custStatementPanel');
-  if(panel) panel.style.width = window.innerWidth <= 768 ? '100%' : '310px';
+  if(panel) panel.style.width = '100%';
   renderCustomers();
   refreshCustPanel();
 }
@@ -9888,7 +9888,7 @@ function renderSuppliers(){
 function openSuppPanel(sid){
   currentSuppId = sid;
   const panel = document.getElementById('suppStatementPanel');
-  if(panel) panel.style.width = window.innerWidth <= 768 ? '100%' : '360px';
+  if(panel) panel.style.width = '100%';
   const s = allSuppliers.find(x=>x.id===sid);
   if(!s) return;
   const nameEl = document.getElementById('panelSuppName');
