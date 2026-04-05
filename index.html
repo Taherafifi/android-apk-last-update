@@ -18024,51 +18024,70 @@ const BACKUP = (() => {
   async function restoreFromFile(fileHandle, isEncrypted = true){
     try{
       const file = await fileHandle.getFile();
-      let jsonStr;
+      let jsonStr = null;
       
-      if(isEncrypted || file.name.endsWith('.posb')){
-        // فك التشفير
-        try{
-          jsonStr = await BACKUP_CRYPTO.decryptFile(file);
-        }catch(decErr){
-          // إذا فشل فك التشفير، حاول كملف JSON عادي (للتوافق مع النسخ القديمة أو الملفات التالفة)
-          console.warn('[BACKUP] Decrypt failed, trying raw JSON:', decErr.message);
-          jsonStr = await file.text();
+      // خطوة 1: قراءة الملف كـ binary buffer
+      const buffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      
+      // خطوة 2: التحقق من الملف POSB encrypted
+      if(bytes.length >= 4){
+        const magicBytes = new TextDecoder().decode(bytes.slice(0, 4));
+        if(magicBytes === 'POSB'){
+          // ملف مشفر — محاولة فك التشفير
+          try{
+            console.log('[BACKUP] عثرت على ملف POSB مشفر، جاري فك التشفير...');
+            jsonStr = await BACKUP_CRYPTO.decryptFile(file);
+            console.log('[BACKUP] تم فك التشفير بنجاح');
+          }catch(decErr){
+            console.error('[BACKUP] فك التشفير فشل:', decErr.message);
+            throw new Error('فشل فك التشفير للملف المشفر: ' + decErr.message);
+          }
         }
-      } else {
-        // ملف JSON قديم غير مشفر (للتوافق مع النسخ القديمة)
+      }
+      
+      // خطوة 3: إذا لم نفك التشفير، محاولة قراءة كـ JSON عادي
+      if(!jsonStr){
+        console.log('[BACKUP] محاولة قراءة الملف كـ JSON نصي...');
         jsonStr = await file.text();
+        if(!jsonStr || !jsonStr.trim()){
+          throw new Error('الملف فارغ ولا يحتوي على بيانات');
+        }
       }
       
-      // تنظيف البيانات: إزالة BOM أو أحرف غريبة
-      jsonStr = jsonStr.replace(/^\uFEFF/, '').trim();
-      if(!jsonStr) throw new Error('الملف فارغ');
+      // خطوة 4: تنظيف البيانات من الأحرف الغريبة والـ BOM
+      jsonStr = jsonStr.replace(/^\uFEFF/, '').replace(/[^\x20-\x7E\n\r\t{}[\]":,./\\-_]/g, '').trim();
+      if(!jsonStr || jsonStr.length === 0){
+        throw new Error('الملف فارغ بعد التنظيف');
+      }
       
-      // تنظيف JSON من الأحرف الغريبة
+      // خطوة 5: التحقق من صحة JSON وتنظيفه
+      let data;
       try{
-        jsonStr = JSON.stringify(JSON.parse(jsonStr));
-      }catch(cleanErr){
-        console.error('[BACKUP] Data cleanup failed:', cleanErr);
-        throw new Error('بيانات الملف تالفة ولا يمكن معالجتها: ' + cleanErr.message);
+        data = JSON.parse(jsonStr);
+        // التحقق من أن البيانات فعلاً تحتوي على backup صالح
+        if(!data || typeof data !== 'object' || !data.stores){
+          throw new Error('بيانات النسخة لا تحتوي على الحقول المطلوبة');
+        }
+      }catch(parseErr){
+        console.error('[BACKUP] JSON parsing failed:', parseErr);
+        throw new Error('بيانات JSON غير صحيحة: ' + parseErr.message);
       }
       
-      const data = JSON.parse(jsonStr);
       return restoreFromData(data);
     }catch(e){
       console.error('[BACKUP] Restore from file error:', e);
       
-      if(e.message.includes('INVALID_BACKUP_FILE')){
-        toast('❌ هذا الملف ليس نسخة احتياطية صالحة لهذا السيستم', 'error');
-      } else if(e.message.includes('DECRYPTION_FAILED')){
-        toast('❌ فشل فك التشفير — الملف من جهاز مختلف أو تالف', 'error');
-      } else if(e.message.includes('Unexpected token')){
-        toast('❌ الملف تالف: بيانات JSON غير صحيحة', 'error');
-      } else if(e.message.includes('الملف فارغ')){
+      if(e.message.includes('فك التشفير') || e.message.includes('DECRYPTION_FAILED')){
+        toast('❌ فشل فك التشفير — الملف من جهاز آخر أو تالف بشدة. جرب ملف backup آخر.', 'error');
+      } else if(e.message.includes('JSON') || e.message.includes('Unexpected token')){
+        toast('❌ الملف تالف: الرجاء تحميل ملف backup صحيح', 'error');
+      } else if(e.message.includes('فارغ')){
         toast('❌ الملف فارغ ولا يحتوي على بيانات', 'error');
-      } else if(e.message.includes('بيانات')){
-        toast('❌ ' + e.message, 'error');
+      } else if(e.message.includes('INVALID_BACKUP_FILE')){
+        toast('❌ هذا الملف ليس نسخة احتياطية صالحة للسيستم', 'error');
       } else {
-        toast('❌ فشل قراءة الملف: ' + e.message, 'error');
+        toast('❌ ' + e.message, 'error');
       }
       return false;
     }
