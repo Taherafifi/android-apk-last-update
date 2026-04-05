@@ -13746,14 +13746,22 @@ async function importBackup(event){
 
   let data;
   try{
-    if(file.name.endsWith('.posb')){
-      // ملف مشفر — فك التشفير أولاً
-      const jsonStr = await BACKUP_CRYPTO.decryptFile(file);
+    // قراءة الملف كـ binary أولاً للتحقق من المحتوى الفعلي
+    const buffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    
+    // التحقق من magic header بدلاً من الامتداد
+    const isPOSB = bytes.length >= 4 && 
+      new TextDecoder().decode(bytes.slice(0, 4)) === 'POSB';
+    
+    if(isPOSB){
+      // ملف مشفر — فك التشفير
+      const jsonStr = await BACKUP_CRYPTO.decrypt(buffer);
       data = JSON.parse(jsonStr);
     } else {
       // ملف JSON عادي (نسخ قديمة أو تصدير يدوي)
-      const text = await file.text();
-      data = JSON.parse(text);
+      const text = new TextDecoder('utf-8', {fatal: false}).decode(bytes);
+      data = JSON.parse(text.replace(/^\uFEFF/, '').trim());
     }
   }catch(e){
     if(e.message?.includes('INVALID_BACKUP_FILE')){
@@ -18026,54 +18034,34 @@ const BACKUP = (() => {
       const file = await fileHandle.getFile();
       let jsonStr = null;
       
-      // خطوة 1: قراءة الملف كـ binary buffer
+      // قراءة الملف كـ binary buffer
       const buffer = await file.arrayBuffer();
       const bytes = new Uint8Array(buffer);
       
-      // خطوة 2: التحقق من الملف POSB encrypted
-      if(bytes.length >= 4){
-        const magicBytes = new TextDecoder().decode(bytes.slice(0, 4));
-        if(magicBytes === 'POSB'){
-          // ملف مشفر — محاولة فك التشفير
-          try{
-            console.log('[BACKUP] عثرت على ملف POSB مشفر، جاري فك التشفير...');
-            jsonStr = await BACKUP_CRYPTO.decryptFile(file);
-            console.log('[BACKUP] تم فك التشفير بنجاح');
-          }catch(decErr){
-            console.error('[BACKUP] فك التشفير فشل:', decErr.message);
-            throw new Error('فشل فك التشفير للملف المشفر: ' + decErr.message);
-          }
+      // التحقق من magic header (POSB = مشفر)
+      const isPOSB = bytes.length >= 4 && 
+        new TextDecoder().decode(bytes.slice(0, 4)) === 'POSB';
+      
+      if(isPOSB){
+        // ملف مشفر — فك التشفير مباشرة من الـ buffer
+        try{
+          console.log('[BACKUP] ملف POSB مشفر، جاري فك التشفير...');
+          jsonStr = await BACKUP_CRYPTO.decrypt(buffer);
+          console.log('[BACKUP] تم فك التشفير بنجاح');
+        }catch(decErr){
+          console.error('[BACKUP] فك التشفير فشل:', decErr.message);
+          throw new Error('فشل فك التشفير: ' + decErr.message);
         }
+      } else {
+        // ملف JSON عادي
+        jsonStr = new TextDecoder('utf-8', {fatal: false}).decode(bytes);
       }
       
-      // خطوة 3: إذا لم نفك التشفير، محاولة قراءة كـ JSON عادي
-      if(!jsonStr){
-        console.log('[BACKUP] محاولة قراءة الملف كـ JSON نصي...');
-        jsonStr = await file.text();
-        if(!jsonStr || !jsonStr.trim()){
-          throw new Error('الملف فارغ ولا يحتوي على بيانات');
-        }
-      }
+      // تنظيف وتحليل
+      jsonStr = (jsonStr || '').replace(/^\uFEFF/, '').trim();
+      if(!jsonStr) throw new Error('الملف فارغ');
       
-      // خطوة 4: تنظيف البيانات من الأحرف الغريبة والـ BOM
-      jsonStr = jsonStr.replace(/^\uFEFF/, '').replace(/[^\x20-\x7E\n\r\t{}[\]":,./\\-_]/g, '').trim();
-      if(!jsonStr || jsonStr.length === 0){
-        throw new Error('الملف فارغ بعد التنظيف');
-      }
-      
-      // خطوة 5: التحقق من صحة JSON وتنظيفه
-      let data;
-      try{
-        data = JSON.parse(jsonStr);
-        // التحقق من أن البيانات فعلاً تحتوي على backup صالح
-        if(!data || typeof data !== 'object' || !data.stores){
-          throw new Error('بيانات النسخة لا تحتوي على الحقول المطلوبة');
-        }
-      }catch(parseErr){
-        console.error('[BACKUP] JSON parsing failed:', parseErr);
-        throw new Error('بيانات JSON غير صحيحة: ' + parseErr.message);
-      }
-      
+      const data = JSON.parse(jsonStr);
       return restoreFromData(data);
     }catch(e){
       console.error('[BACKUP] Restore from file error:', e);
