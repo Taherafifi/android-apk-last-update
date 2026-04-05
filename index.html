@@ -17711,7 +17711,20 @@ const BACKUP = (() => {
   // يحتفظ بنسخة واحدة فقط — يمسح القديمة قبل الحفظ
   async function _saveToIndex(filename, jsonStr){
     try{
+      // تحقق من صحة JSON قبل التشفير
+      try{ JSON.parse(jsonStr); } catch(e){
+        console.error('[BACKUP] Invalid JSON before encrypt:', e);
+        return;
+      }
+      
       const encryptedData = await BACKUP_CRYPTO.encryptForIndex(jsonStr);
+      
+      // تحقق من صحة البيانات المشفرة
+      if(!encryptedData || typeof encryptedData !== 'string'){
+        console.error('[BACKUP] Encryption failed - no data');
+        return;
+      }
+      
       const entry = {
         filename,
         createdAt: new Date().toISOString(),
@@ -17726,12 +17739,29 @@ const BACKUP = (() => {
         const mini = [{ filename, createdAt: entry.createdAt, size: entry.size }];
         localStorage.setItem(KEY_INDEX, JSON.stringify(mini));
       }
-    }catch(e){ console.warn('[BACKUP] Index save failed:', e); }
+    }catch(e){ 
+      console.warn('[BACKUP] Index save failed:', e); 
+      try{ localStorage.removeItem(KEY_INDEX); }catch(e){}
+    }
   }
 
   function _getIndex(){
-    try{ return JSON.parse(localStorage.getItem(KEY_INDEX)||'[]'); }
-    catch(e){ return []; }
+    try{
+      const raw = localStorage.getItem(KEY_INDEX)||'[]';
+      const arr = JSON.parse(raw);
+      if(!Array.isArray(arr)) return [];
+      // تنظيف أي بيانات فاسدة من الفهرس
+      return arr.filter(entry => {
+        if(!entry || typeof entry !== 'object') return false;
+        if(!entry.filename || typeof entry.filename !== 'string') return false;
+        return true;
+      });
+    }
+    catch(e){
+      console.warn('[BACKUP] Index parse failed, clearing:', e);
+      try{ localStorage.removeItem(KEY_INDEX); }catch(e){}
+      return [];
+    }
   }
 
   // _saveToFolder → replaced by BACKUP_CRYPTO.encryptAndSaveToFolder
@@ -18021,7 +18051,13 @@ const BACKUP = (() => {
       let jsonStr;
       if(entry.encrypted && entry.data){
         // فك التشفير من الفهرس المشفر
-        jsonStr = await BACKUP_CRYPTO.decryptFromIndex(entry.data);
+        try{
+          jsonStr = await BACKUP_CRYPTO.decryptFromIndex(entry.data);
+        }catch(decErr){
+          // إذا فشل فك التشفير، حاول بدون تشفير (للتوافق مع النسخ القديمة)
+          console.warn('[BACKUP] Decrypt failed, trying raw JSON:', decErr.message);
+          jsonStr = typeof entry.data === 'string' ? entry.data : JSON.stringify(entry.data);
+        }
       } else if(entry.data){
         // بيانات قديمة غير مشفرة (للتوافق)
         jsonStr = typeof entry.data === 'string' ? entry.data : JSON.stringify(entry.data);
@@ -18029,11 +18065,24 @@ const BACKUP = (() => {
         toast('❌ بيانات النسخة غير موجودة في الفهرس', 'error');
         return false;
       }
+      
+      // تنظيف البيانات: إزالة أي أحرف غريبة أو التحكم
+      try{
+        jsonStr = JSON.stringify(JSON.parse(jsonStr));
+      }catch(cleanErr){
+        console.error('[BACKUP] Data cleanup failed:', cleanErr);
+        toast('❌ بيانات النسخة الاحتياطية تالفة ولا يمكن استرجاعها', 'error');
+        return false;
+      }
+      
       const data = JSON.parse(jsonStr);
       return restoreFromData(data);
     }catch(e){
       if(e.message?.includes('DECRYPTION_FAILED')){
         toast('❌ فشل فك تشفير النسخة — قد تكون من جهاز مختلف', 'error');
+      } else if(e.message?.includes('Unexpected token')){
+        toast('❌ بيانات النسخة تالفة: محاولة مسح الفهرس...', 'error');
+        try{ localStorage.removeItem(KEY_INDEX); }catch(e){}
       } else {
         toast('❌ بيانات النسخة تالفة: ' + e.message, 'error');
       }
