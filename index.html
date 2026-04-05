@@ -18025,20 +18025,48 @@ const BACKUP = (() => {
     try{
       const file = await fileHandle.getFile();
       let jsonStr;
+      
       if(isEncrypted || file.name.endsWith('.posb')){
         // فك التشفير
-        jsonStr = await BACKUP_CRYPTO.decryptFile(file);
+        try{
+          jsonStr = await BACKUP_CRYPTO.decryptFile(file);
+        }catch(decErr){
+          // إذا فشل فك التشفير، حاول كملف JSON عادي (للتوافق مع النسخ القديمة أو الملفات التالفة)
+          console.warn('[BACKUP] Decrypt failed, trying raw JSON:', decErr.message);
+          jsonStr = await file.text();
+        }
       } else {
         // ملف JSON قديم غير مشفر (للتوافق مع النسخ القديمة)
         jsonStr = await file.text();
       }
+      
+      // تنظيف البيانات: إزالة BOM أو أحرف غريبة
+      jsonStr = jsonStr.replace(/^\uFEFF/, '').trim();
+      if(!jsonStr) throw new Error('الملف فارغ');
+      
+      // تنظيف JSON من الأحرف الغريبة
+      try{
+        jsonStr = JSON.stringify(JSON.parse(jsonStr));
+      }catch(cleanErr){
+        console.error('[BACKUP] Data cleanup failed:', cleanErr);
+        throw new Error('بيانات الملف تالفة ولا يمكن معالجتها: ' + cleanErr.message);
+      }
+      
       const data = JSON.parse(jsonStr);
       return restoreFromData(data);
     }catch(e){
+      console.error('[BACKUP] Restore from file error:', e);
+      
       if(e.message.includes('INVALID_BACKUP_FILE')){
         toast('❌ هذا الملف ليس نسخة احتياطية صالحة لهذا السيستم', 'error');
       } else if(e.message.includes('DECRYPTION_FAILED')){
         toast('❌ فشل فك التشفير — الملف من جهاز مختلف أو تالف', 'error');
+      } else if(e.message.includes('Unexpected token')){
+        toast('❌ الملف تالف: بيانات JSON غير صحيحة', 'error');
+      } else if(e.message.includes('الملف فارغ')){
+        toast('❌ الملف فارغ ولا يحتوي على بيانات', 'error');
+      } else if(e.message.includes('بيانات')){
+        toast('❌ ' + e.message, 'error');
       } else {
         toast('❌ فشل قراءة الملف: ' + e.message, 'error');
       }
